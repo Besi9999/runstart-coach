@@ -1,0 +1,10 @@
+{
+  "profile": {"weightKg":80,"heightCm":168,"goal":"Build consistency and complete an easy 5K"},
+  "week": 1,
+  "sessions": [
+    {"id":1,"day":"Session 1","plan":"5 min walk + 8 x (1 min easy run / 2 min walk) + 5 min walk","done":false,"rpe":null},
+    {"id":2,"day":"Session 2","plan":"5 min walk + 8 x (1 min easy run / 2 min walk) + 5 min walk","done":false,"rpe":null},
+    {"id":3,"day":"Session 3","plan":"5 min walk + 10 x (1 min easy run / 2 min walk) + 5 min walk","done":false,"rpe":null}
+  ],
+  "weightHistory": []
+}
