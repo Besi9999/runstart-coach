@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart Coach V4</title>
+  <title>RunStart Coach V4.1</title>
 </head>
 <body>
   <main class="app">
@@ -62,7 +62,7 @@
 
     <section id="historyTab" class="tab-panel">
       <section id="summaryCard" class="card summary hidden">
-        <div class="section-title compact"><h3>Run saved</h3><button id="closeSummary" class="icon-btn">×</button></div>
+        <div class="section-title compact"><h3 id="summaryTitle">Run saved</h3><button id="closeSummary" class="icon-btn">×</button></div><div id="summaryNotice" class="test-notice hidden"><strong>TEST DATA</strong><span>This simulated activity is excluded from all real-run statistics and trends.</span></div>
         <div class="summary-grid"><div><span>Distance</span><strong id="summaryDistance">0.00 km</strong></div><div><span>Active time</span><strong id="summaryTime">00:00</strong></div><div><span>Avg pace</span><strong id="summaryPace">--:-- /km</strong></div><div><span>Paused</span><strong id="summaryPaused">00:00</strong></div><div><span>Splits</span><strong id="summarySplits">0</strong></div><div><span>Mode</span><strong id="summaryMode">GPS</strong></div></div>
       </section>
 
@@ -74,17 +74,17 @@
         <div class="button-row"><button id="exportGpx" class="secondary">Export GPX</button><button id="deleteRun" class="danger">Delete run</button></div>
       </section>
 
-      <section class="card"><div class="section-title compact"><h3>Running history</h3><span id="historyTotal" class="muted">0 runs</span></div><div id="historyList" class="history-list"></div></section>
-      <section class="card"><h3>Data & privacy</h3><p class="muted small">Run history and route coordinates stay in this browser/PWA. They are not uploaded to GitHub. Export a backup before clearing Safari website data.</p><button id="exportData" class="secondary full">Export my RunStart data</button></section>
+      <section class="card"><div class="section-title compact"><h3>Running history</h3><span id="historyTotal" class="muted">0 real · 0 test</span></div><div id="historyList" class="history-list"></div></section>
+      <section class="card"><h3>Data & privacy</h3><p class="muted small">Real GPS runs and TEST simulation activities are stored locally in this browser/PWA. TEST activities are never counted in Stats. Export a backup before clearing Safari website data.</p><div class="button-row"><button id="exportData" class="secondary">Export my RunStart data</button><button id="deleteTests" class="danger">Delete all TEST activities</button></div></section>
     </section>
 
     <section id="statsTab" class="tab-panel">
       <section class="card"><div class="section-title compact"><h3>Running statistics</h3><span class="muted">local data</span></div><div id="statsGrid" class="stats-grid"></div></section>
-      <section class="card"><div class="section-title compact"><h3>Recent pace trend</h3><span class="muted">last 8 runs</span></div><div id="paceTrend" class="pace-chart"></div><p class="muted small">Short tests and simulation runs can distort trends. Use History to delete test activities when finished validating the app.</p></section>
+      <section class="card"><div class="section-title compact"><h3>Recent pace trend</h3><span class="muted">last 8 runs</span></div><div id="paceTrend" class="pace-chart"></div><p class="muted small">Only real GPS runs are included here. TEST simulation activities are automatically excluded from trends and all statistics.</p></section>
       <section class="card"><div class="section-title compact"><h3>Weekly consistency</h3><span class="muted">last 6 weeks</span></div><div id="weeklyChart" class="weekly-chart"></div></section>
     </section>
 
-    <section class="card install-card"><h3>iPhone app</h3><p>V4 adds real OpenStreetMap route maps, improved pause/resume, exact kilometer split interpolation, statistics, GPX export, and a separate simulation mode for testing without walking or running.</p></section>
+    <section class="card install-card"><h3>iPhone app</h3><p>V4.1 keeps the serious tracker features and protects your real statistics: Simulation is clearly marked TEST, automatically excluded from Stats/trends, and can be deleted in one tap.</p></section>
     <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
