@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#111827" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -10,104 +10,38 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart Coach V2</title>
+  <title>RunStart Coach</title>
 </head>
 <body>
   <main class="app">
-    <header>
-      <div>
-        <p class="eyebrow">BEGINNER RUNNING COACH</p>
-        <h1>RunStart</h1>
-        <p class="version">V2 • GPS run tracker</p>
-      </div>
-      <div class="badge">Week <span id="week">1</span></div>
-    </header>
-
-    <nav class="tabs" aria-label="RunStart sections">
-      <button class="tab active" data-tab="coach">Coach</button>
-      <button class="tab" data-tab="run">Run</button>
-      <button class="tab" data-tab="history">History</button>
-    </nav>
+    <header><div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V3 • smart pace + splits</p></div><div class="badge">Week <span id="week">1</span></div></header>
+    <nav class="tabs"><button class="tab active" data-tab="coach">Coach</button><button class="tab" data-tab="run">Run</button><button class="tab" data-tab="history">History</button></nav>
 
     <section id="coachTab" class="tab-panel active">
-      <section class="hero card">
-        <div>
-          <p class="muted">Current goal</p>
-          <h2 id="goal">Build consistency and complete an easy 5K</h2>
-          <p id="coachText">Keep the effort easy enough to speak in short sentences.</p>
-        </div>
-        <div class="score"><span id="score">0</span><small>% done</small></div>
-      </section>
-
-      <section>
-        <div class="section-title"><h3>This week</h3><span class="muted">3 sessions</span></div>
-        <div id="sessions" class="stack"></div>
-      </section>
-
-      <section class="card">
-        <div class="section-title compact"><h3>Weight tracker</h3><span id="bmi" class="muted"></span></div>
-        <form id="weightForm" class="row">
-          <input id="weightInput" inputmode="decimal" type="number" min="30" max="300" step="0.1" placeholder="Weight (kg)" />
-          <button type="submit">Save</button>
-        </form>
-        <p class="muted small">Saved only on this device. Training consistency matters more than daily weight changes.</p>
-      </section>
+      <section class="hero card"><div><p class="muted">Current goal</p><h2 id="goal"></h2><p id="coachText"></p></div><div class="score"><span id="score">0</span><small>% done</small></div></section>
+      <section><div class="section-title"><h3>This week</h3><span class="muted">3 sessions</span></div><div id="sessions" class="stack"></div></section>
+      <section class="card"><div class="section-title compact"><h3>Weight tracker</h3><span id="bmi" class="muted"></span></div><form id="weightForm" class="row"><input id="weightInput" inputmode="decimal" type="number" min="30" max="300" step="0.1" /><button type="submit">Save</button></form><p class="muted small">Saved only on this device. Training consistency matters more than daily weight changes.</p></section>
     </section>
 
     <section id="runTab" class="tab-panel">
       <section class="card tracker-card">
-        <div class="tracker-head">
-          <div>
-            <p class="eyebrow">LIVE RUN</p>
-            <h2 id="trackerStatus">Ready</h2>
-          </div>
-          <div class="gps-pill" id="gpsStatus">GPS idle</div>
-        </div>
-
-        <div class="metrics-grid">
-          <div class="metric"><strong id="runTime">00:00</strong><span>Time</span></div>
-          <div class="metric"><strong id="runDistance">0.00</strong><span>km</span></div>
-          <div class="metric"><strong id="runPace">--:--</strong><span>min/km</span></div>
-          <div class="metric"><strong id="runAccuracy">—</strong><span>GPS ±m</span></div>
-        </div>
-
-        <div class="run-actions">
-          <button id="startRun" class="primary">Start Run</button>
-          <button id="pauseRun" class="secondary" disabled>Pause</button>
-          <button id="finishRun" class="danger" disabled>Finish</button>
-        </div>
-        <p class="muted small">RunStart uses iPhone location while this screen is active. For best results, keep the app open during the run. iOS may suspend browser-based GPS when the phone is locked for a long time.</p>
+        <div class="tracker-head"><div><p class="eyebrow">LIVE RUN</p><h2 id="trackerStatus">Ready</h2></div><div class="gps-pill" id="gpsStatus">GPS idle</div></div>
+        <div class="metrics-grid"><div class="metric"><strong id="runTime">00:00</strong><span>Time</span></div><div class="metric"><strong id="runDistance">0.00</strong><span>km</span></div><div class="metric"><strong id="runPace">--:--</strong><span>current min/km</span></div><div class="metric"><strong id="avgPace">--:--</strong><span>average min/km</span></div><div class="metric"><strong id="runAccuracy">—</strong><span>GPS ±m</span></div></div>
+        <div class="run-actions"><button id="startRun" class="primary">Start Run</button><button id="pauseRun" class="secondary" disabled>Pause</button><button id="finishRun" class="danger" disabled>Finish</button></div>
+        <p class="muted small">Keep RunStart open while running. GPS points with weak accuracy or implausible speed are filtered before distance is added.</p>
       </section>
-
-      <section class="card">
-        <div class="section-title compact"><h3>Route trace</h3><span id="pointCount" class="muted">0 GPS points</span></div>
-        <div class="route-box">
-          <svg id="routeSvg" viewBox="0 0 300 180" role="img" aria-label="Simplified route trace">
-            <polyline id="routeLine" points="" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline>
-          </svg>
-          <p id="routeEmpty" class="route-empty">Your route trace will appear after GPS points are recorded.</p>
-        </div>
-      </section>
+      <section class="card"><div class="section-title compact"><h3>Live splits</h3><span class="muted">per km</span></div><div id="liveSplits" class="split-list"></div></section>
+      <section class="card"><div class="section-title compact"><h3>Route trace</h3><span id="pointCount" class="muted">0 GPS points</span></div><div class="route-box"><svg viewBox="0 0 300 180"><polyline id="routeLine" points="" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline></svg><p id="routeEmpty" class="route-empty">Your route trace will appear after GPS points are recorded.</p></div></section>
     </section>
 
     <section id="historyTab" class="tab-panel">
-      <section class="card">
-        <div class="section-title compact"><h3>Running history</h3><span id="historyTotal" class="muted">0 runs</span></div>
-        <div id="historyList" class="history-list"></div>
-      </section>
-      <section class="card">
-        <h3>Data & privacy</h3>
-        <p class="muted small">Run history is stored locally in this browser/PWA. It is not uploaded to GitHub. Strava sync is not enabled yet.</p>
-        <button id="exportData" class="secondary full">Export my RunStart data</button>
-      </section>
+      <section id="summaryCard" class="card summary hidden"><div class="section-title compact"><h3>Run saved</h3><button id="closeSummary" class="icon-btn">×</button></div><div class="summary-grid"><div><span>Distance</span><strong id="summaryDistance">0.00 km</strong></div><div><span>Time</span><strong id="summaryTime">00:00</strong></div><div><span>Avg pace</span><strong id="summaryPace">--:-- /km</strong></div><div><span>Splits</span><strong id="summarySplits">0</strong></div></div></section>
+      <section id="detailCard" class="card hidden"><div class="section-title compact"><div><p class="eyebrow">RUN DETAIL</p><h3 id="detailTitle"></h3></div><button id="closeDetail" class="icon-btn">×</button></div><div class="summary-grid"><div><span>Distance</span><strong id="detailDistance"></strong></div><div><span>Time</span><strong id="detailTime"></strong></div><div><span>Avg pace</span><strong id="detailPace"></strong></div></div><h4>Splits</h4><div id="detailSplits" class="split-list"></div><h4>Route</h4><div class="route-box small-route"><svg viewBox="0 0 300 180"><polyline id="detailRouteLine" points="" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline></svg><p id="detailRouteEmpty" class="route-empty">No route trace available.</p></div><button id="deleteRun" class="danger full">Delete this run</button></section>
+      <section class="card"><div class="section-title compact"><h3>Running history</h3><span id="historyTotal" class="muted">0 runs</span></div><div id="historyList" class="history-list"></div></section>
+      <section class="card"><h3>Data & privacy</h3><p class="muted small">Run history stays in this browser/PWA and is not uploaded to GitHub. Export a backup before clearing Safari website data.</p><button id="exportData" class="secondary full">Export my RunStart data</button></section>
     </section>
 
-    <section class="card install-card">
-      <h3>iPhone app</h3>
-      <p>This installed PWA works over HTTPS and can request GPS permission for run tracking.</p>
-      <p class="muted small">If location access was denied, enable it in iPhone Settings → Privacy & Security → Location Services → Safari Websites / RunStart.</p>
-    </section>
-
+    <section class="card install-card"><h3>iPhone app</h3><p>V3 keeps local data from V2, improves pace handling, filters noisy GPS, and records kilometer splits.</p></section>
     <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
   </main>
   <script src="./app.js"></script>
