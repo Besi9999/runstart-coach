@@ -18,3 +18,11 @@
 .diagnostic-status.ok{border-color:#166534;background:#052e16;color:#bbf7d0}
 .diagnostic-status.error{border-color:#991b1b;background:#450a0a;color:#fecaca}
 .diagnostic-status strong{color:inherit}
+
+
+/* RunStart V8 */
+.tabs{grid-template-columns:repeat(3,1fr)}
+.insight-copy{font-size:14px;line-height:1.55;color:#dbeafe;background:#111827;border:1px solid #273449;border-radius:14px;padding:13px;margin:10px 0}
+.coach-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.coach-metrics>div{background:#111827;border:1px solid #273449;border-radius:12px;padding:10px}.coach-metrics span{display:block;font-size:10px;color:#94a3b8}.coach-metrics strong{font-size:18px;display:block;margin-top:3px}.readiness.ready{border-color:#166534;color:#bbf7d0}.readiness.recover{border-color:#991b1b;color:#fecaca}.readiness.steady{border-color:#1d4ed8;color:#bfdbfe}
+.route-map{height:330px}.replay-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.replay-progress{display:flex;gap:10px;align-items:center;margin-top:10px}.replay-progress>div{height:8px;background:#111827;border:1px solid #273449;border-radius:999px;overflow:hidden;flex:1}.replay-progress i{display:block;height:100%;width:0;background:#60a5fa;transition:width .12s linear}.replay-progress span{font-size:11px;color:#94a3b8;min-width:34px}
+@media(max-width:480px){.coach-metrics{grid-template-columns:1fr 1fr}.route-map{height:280px}}

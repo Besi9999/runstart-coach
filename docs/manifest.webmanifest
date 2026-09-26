@@ -1,13 +1,21 @@
 {
-  "name":"RunStart Coach V4.1",
-  "short_name":"RunStart",
-  "start_url":"./",
-  "scope":"./",
-  "display":"standalone",
-  "background_color":"#0b1020",
-  "theme_color":"#111827",
-  "icons":[
-    {"src":"./icons/icon-192.png","sizes":"192x192","type":"image/png"},
-    {"src":"./icons/icon-512.png","sizes":"512x512","type":"image/png"}
+  "name": "RunStart V8 Running Coach",
+  "short_name": "RunStart",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }

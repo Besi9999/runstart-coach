@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart Coach V5.2</title>
+  <title>RunStart V8</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V5.2 • free GPX export + GPX diagnostic test</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8 • adaptive coaching + advanced analytics + route intelligence</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -26,12 +26,20 @@
       <button class="tab active" data-tab="coach">Coach</button>
       <button class="tab" data-tab="run">Run</button>
       <button class="tab" data-tab="history">History</button>
-      <button class="tab" data-tab="stats">Stats</button>
+      <button class="tab" data-tab="stats">Analytics</button>
+      <button class="tab" data-tab="routes">Routes</button>
       <button class="tab" data-tab="share">Share</button>
     </nav>
 
     <section id="coachTab" class="tab-panel active">
       <section class="hero card"><div><p class="muted">Current goal</p><h2 id="goal"></h2><p id="coachText"></p></div><div class="score"><span id="score">0</span><small>% done</small></div></section>
+
+      <section class="card intelligence-card">
+        <div class="section-title compact"><div><p class="eyebrow">TRAINING INTELLIGENCE</p><h3>Adaptive guidance</h3></div><span id="readinessBadge" class="mode-badge">BUILDING</span></div>
+        <div id="coachInsight" class="insight-copy"></div>
+        <div id="coachMetrics" class="coach-metrics"></div>
+        <p class="muted small">Guidance uses only your local RunStart history, completed sessions, RPE and recent pace trends. It is coaching support, not medical advice.</p>
+      </section>
       <section><div class="section-title"><h3>This week</h3><span class="muted">3 sessions</span></div><div id="sessions" class="stack"></div></section>
       <section class="card"><div class="section-title compact"><h3>Weight tracker</h3><span id="bmi" class="muted"></span></div><form id="weightForm" class="row"><input id="weightInput" inputmode="decimal" type="number" min="30" max="300" step="0.1" /><button type="submit">Save</button></form><p class="muted small">Saved only on this device. Training consistency matters more than daily weight changes.</p></section>
     </section>
@@ -81,11 +89,30 @@
     </section>
 
     <section id="statsTab" class="tab-panel">
-      <section class="card"><div class="section-title compact"><h3>Running statistics</h3><span class="muted">local data</span></div><div id="statsGrid" class="stats-grid"></div></section>
+      <section class="card"><div class="section-title compact"><div><p class="eyebrow">ADVANCED ANALYTICS</p><h3>Running statistics</h3></div><span class="muted">REAL runs only</span></div><div id="statsGrid" class="stats-grid"></div></section>
+      <section class="card"><div class="section-title compact"><h3>Best efforts & records</h3><span class="muted">route-derived</span></div><div id="prGrid" class="stats-grid"></div><p class="muted small">Best efforts are calculated from stored GPS track points. Short or sparse tracks may not produce a record.</p></section>
       <section class="card"><div class="section-title compact"><h3>Recent pace trend</h3><span class="muted">last 8 runs</span></div><div id="paceTrend" class="pace-chart"></div><p class="muted small">Only real GPS runs are included here. TEST simulation activities are automatically excluded from trends and all statistics.</p></section>
       <section class="card"><div class="section-title compact"><h3>Weekly consistency</h3><span class="muted">last 6 weeks</span></div><div id="weeklyChart" class="weekly-chart"></div></section>
     </section>
 
+    <section id="routesTab" class="tab-panel">
+      <section class="card">
+        <div class="section-title compact"><div><p class="eyebrow">ROUTE INTELLIGENCE</p><h3>Personal route heatmap</h3></div><span id="routeCount" class="muted">0 routes</span></div>
+        <div id="heatMap" class="map route-map"></div>
+        <p class="muted small">All REAL GPS routes are overlaid locally. Darker overlap means you have run that corridor more often. Map tiles require internet access.</p>
+      </section>
+      <section class="card">
+        <div class="section-title compact"><h3>Route library</h3><span class="muted">tap to inspect</span></div>
+        <div id="routeLibrary" class="history-list"></div>
+      </section>
+      <section id="routeReplayCard" class="card hidden">
+        <div class="section-title compact"><div><p class="eyebrow">ROUTE REPLAY</p><h3 id="routeReplayTitle">Selected route</h3></div><button id="closeRouteReplay" class="icon-btn">×</button></div>
+        <div id="routeReplayStats" class="summary-grid"></div>
+        <div id="routeReplayMap" class="map route-map"></div>
+        <div class="replay-controls"><button id="replayRoute" class="primary">Replay route</button><button id="stopReplay" class="secondary" disabled>Stop</button></div>
+        <div class="replay-progress"><span id="replayProgress">0%</span><div><i id="replayBar"></i></div></div>
+      </section>
+    </section>
 
     <section id="shareTab" class="tab-panel">
       <section class="card">
@@ -94,8 +121,8 @@
         <div id="shareRunList" class="history-list"></div>
       </section>
       <section class="card diagnostic-card">
-        <div class="section-title compact"><div><p class="eyebrow">GPX DIAGNOSTIC</p><h3>Test GPX export without a real run</h3></div><span class="manage-badge test">TEST ONLY</span></div>
-        <p class="muted small">Generate a clearly labeled synthetic GPX file to verify that RunStart can create a readable GPX. This does <strong>not</strong> create a RunStart activity, does not change Stats, and must never be treated as a real run.</p>
+        <div class="section-title compact"><div><p class="eyebrow">GPX DIAGNOSTIC</p><h3>Strava-compatible GPX diagnostic</h3></div><span class="manage-badge test">TEST ONLY</span></div>
+        <p class="muted small">Generate a clearly labeled ~1 km synthetic GPX with realistic timestamps to verify route, distance and duration parsing. This does <strong>not</strong> create a RunStart activity, does not change Stats, and must never be treated as a real run.</p>
         <div class="button-row"><button id="generateDiagnosticGpx" class="secondary">Generate TEST GPX</button></div>
         <div id="diagnosticStatus" class="diagnostic-status" aria-live="polite">No diagnostic file generated yet.</div>
         <p class="muted small">Optional parser check: select the TEST GPX on Strava's upload page only to confirm that the file is recognized, then cancel before saving the activity.</p>
