@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart Coach V4.1</title>
+  <title>RunStart Coach V4.2</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V4.1 • TEST-safe stats + mature tracking</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V4.2 • data management + TEST-safe stats</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -71,11 +71,12 @@
         <div class="summary-grid"><div><span>Distance</span><strong id="detailDistance"></strong></div><div><span>Active time</span><strong id="detailTime"></strong></div><div><span>Avg pace</span><strong id="detailPace"></strong></div><div><span>Paused</span><strong id="detailPaused"></strong></div><div><span>GPS avg</span><strong id="detailAccuracy"></strong></div><div><span>Mode</span><strong id="detailMode"></strong></div></div>
         <h4>Splits</h4><div id="detailSplits" class="split-list"></div>
         <h4>Route map</h4><div id="detailMap" class="map detail-map"></div>
-        <div class="button-row"><button id="exportGpx" class="secondary">Export GPX</button><button id="deleteRun" class="danger">Delete run</button></div>
+        <div class="button-row three"><button id="exportGpx" class="secondary">Export GPX</button><button id="toggleTest" class="secondary">Mark as TEST</button><button id="deleteRun" class="danger">Delete run</button></div>
       </section>
 
       <section class="card"><div class="section-title compact"><h3>Running history</h3><span id="historyTotal" class="muted">0 real · 0 test</span></div><div id="historyList" class="history-list"></div></section>
-      <section class="card"><h3>Data & privacy</h3><p class="muted small">Real GPS runs and TEST simulation activities are stored locally in this browser/PWA. TEST activities are never counted in Stats. Export a backup before clearing Safari website data.</p><div class="button-row"><button id="exportData" class="secondary">Export my RunStart data</button><button id="deleteTests" class="danger">Delete all TEST activities</button></div></section>
+      <section class="card"><h3>Data & privacy</h3><p class="muted small">Real GPS runs and TEST activities are stored locally in this browser/PWA. TEST activities are never counted in Stats. Export a backup before clearing Safari website data or resetting run history.</p><div class="button-row"><button id="exportData" class="secondary">Export my RunStart data</button><button id="deleteTests" class="danger">Delete all TEST activities</button></div></section>
+      <section class="card data-manager"><div class="section-title compact"><h3>Data management</h3><span id="manageCounts" class="muted">0 real · 0 test</span></div><p class="muted small">Use this to clean old GPS test records before Strava. Select activities, then mark them TEST or delete them. Reset running data removes run history/statistics only; Coach sessions, RPE, weight and goal are kept.</p><div id="manageList" class="manage-list"></div><div class="button-row"><button id="markSelectedTest" class="secondary">Mark selected TEST</button><button id="markSelectedReal" class="secondary">Mark selected REAL</button></div><div class="button-row"><button id="deleteSelected" class="danger">Delete selected</button><button id="resetRunningData" class="danger">Reset running data</button></div></section>
     </section>
 
     <section id="statsTab" class="tab-panel">
@@ -84,7 +85,7 @@
       <section class="card"><div class="section-title compact"><h3>Weekly consistency</h3><span class="muted">last 6 weeks</span></div><div id="weeklyChart" class="weekly-chart"></div></section>
     </section>
 
-    <section class="card install-card"><h3>iPhone app</h3><p>V4.1 keeps the serious tracker features and protects your real statistics: Simulation is clearly marked TEST, automatically excluded from Stats/trends, and can be deleted in one tap.</p></section>
+    <section class="card install-card"><h3>iPhone app</h3><p>V4.2 adds data management before Strava: old GPS test records can be marked TEST, selected activities can be deleted, and running history/statistics can be reset without touching Coach settings.</p></section>
     <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
