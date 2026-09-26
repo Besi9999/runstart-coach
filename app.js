@@ -1,0 +1,340 @@
+const KEY='runstart-coach-state-v8';
+const LEGACY_KEYS=['runstart-coach-state-v4-2','runstart-coach-state-v4-1','runstart-coach-state-v4','runstart-coach-state-v3','runstart-coach-state-v2','runstart-coach-state-v1'];
+const defaultState={
+  week:1,
+  profile:{heightCm:168,weightKg:80,goal:'Build consistency and complete an easy 5K'},
+  checkins:{},
+  coach:{selectedSessionId:null,lastDebrief:null},
+  sessions:[
+    {id:1,day:'Session 1',plan:'5 min walk + 8 x (1 min easy run / 2 min walk) + 5 min walk',done:false,rpe:null},
+    {id:2,day:'Session 2',plan:'5 min walk + 8 x (1 min easy run / 2 min walk) + 5 min walk',done:false,rpe:null},
+    {id:3,day:'Session 3',plan:'5 min walk + 10 x (1 min easy run / 2 min walk) + 5 min walk',done:false,rpe:null}
+  ],
+  runs:[]
+};
+const $=s=>document.querySelector(s);
+function clone(x){return JSON.parse(JSON.stringify(x));}
+function normalizeRun(r){const mode=r.mode||'real';return {...r,mode,isTest:r.isTest===true||mode==='simulation',pausedMs:Number(r.pausedMs)||0,splits:Array.isArray(r.splits)?r.splits:[],points:Array.isArray(r.points)?r.points:[]};}
+function isTestRun(r){return !!(r&&(r.isTest===true||r.mode==='simulation'));}
+function realRuns(){return state.runs.filter(r=>!isTestRun(r));}
+function testRuns(){return state.runs.filter(isTestRun);}
+function modeLabel(r){if(!r)return'—';if(isTestRun(r)){return r.mode==='simulation'?'TEST simulation · excluded from stats':'TEST GPS · excluded from stats';}return'Real GPS';}
+function selectedRunIds(){return [...document.querySelectorAll('.manage-check:checked')].map(x=>Number(x.dataset.id));}
+function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){const parsed=JSON.parse(raw);return {...clone(defaultState),...parsed,runs:(parsed.runs||[]).map(normalizeRun)};}
+    for(const k of LEGACY_KEYS){
+      const legacy=localStorage.getItem(k);
+      if(legacy){const old=JSON.parse(legacy);const migrated={...clone(defaultState),...old,runs:(old.runs||[]).map(normalizeRun)};localStorage.setItem(KEY,JSON.stringify(migrated));return migrated;}
+    }
+  }catch{}
+  return clone(defaultState);
+}
+let state=load();
+state.coach={selectedSessionId:null,lastDebrief:null,...(state.coach||{})};
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+function fmtTime(ms){const total=Math.max(0,Math.floor(ms/1000));const h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;return h?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
+function fmtPace(distanceM,elapsedMs,minDistance=10){if(distanceM<minDistance||elapsedMs<=0)return'--:--';const minPerKm=(elapsedMs/60000)/(distanceM/1000);if(!Number.isFinite(minPerKm)||minPerKm<=0||minPerKm>99)return'--:--';let m=Math.floor(minPerKm),s=Math.round((minPerKm-m)*60);if(s===60){m+=1;s=0;}return`${m}:${String(s).padStart(2,'0')}`;}
+function paceMinutes(distanceM,elapsedMs){if(distanceM<20||elapsedMs<=0)return null;return(elapsedMs/60000)/(distanceM/1000);}
+function hav(a,b){const R=6371000,toRad=x=>x*Math.PI/180;const dLat=toRad(b.lat-a.lat),dLon=toRad(b.lon-a.lon);const q=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(q));}
+function destination(p,d,bearingDeg){const R=6371000,br=bearingDeg*Math.PI/180,lat1=p.lat*Math.PI/180,lon1=p.lon*Math.PI/180,dr=d/R;const lat2=Math.asin(Math.sin(lat1)*Math.cos(dr)+Math.cos(lat1)*Math.sin(dr)*Math.cos(br));const lon2=lon1+Math.atan2(Math.sin(br)*Math.sin(dr)*Math.cos(lat1),Math.cos(dr)-Math.sin(lat1)*Math.sin(lat2));return{lat:lat2*180/Math.PI,lon:lon2*180/Math.PI};}
+
+
+const WEEK_PLANS={
+  1:[
+    {id:1,day:'Session 1',plan:'5 min walk + 8 x (1 min easy run / 2 min walk) + 5 min walk',warm:300,reps:8,run:60,walk:120,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 8 x (1 min easy run / 2 min walk) + 5 min walk',warm:300,reps:8,run:60,walk:120,cool:300},
+    {id:3,day:'Session 3',plan:'5 min walk + 10 x (1 min easy run / 2 min walk) + 5 min walk',warm:300,reps:10,run:60,walk:120,cool:300}
+  ],
+  2:[
+    {id:1,day:'Session 1',plan:'5 min walk + 8 x (90 sec easy run / 2 min walk) + 5 min walk',warm:300,reps:8,run:90,walk:120,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 8 x (90 sec easy run / 90 sec walk) + 5 min walk',warm:300,reps:8,run:90,walk:90,cool:300},
+    {id:3,day:'Session 3',plan:'5 min walk + 10 x (90 sec easy run / 90 sec walk) + 5 min walk',warm:300,reps:10,run:90,walk:90,cool:300}
+  ],
+  3:[
+    {id:1,day:'Session 1',plan:'5 min walk + 8 x (2 min easy run / 90 sec walk) + 5 min walk',warm:300,reps:8,run:120,walk:90,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 7 x (3 min easy run / 90 sec walk) + 5 min walk',warm:300,reps:7,run:180,walk:90,cool:300},
+    {id:3,day:'Session 3',plan:'5 min walk + 6 x (4 min easy run / 2 min walk) + 5 min walk',warm:300,reps:6,run:240,walk:120,cool:300}
+  ],
+  4:[
+    {id:1,day:'Session 1',plan:'5 min walk + 6 x (5 min easy run / 2 min walk) + 5 min walk',warm:300,reps:6,run:300,walk:120,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 5 x (6 min easy run / 2 min walk) + 5 min walk',warm:300,reps:5,run:360,walk:120,cool:300},
+    {id:3,day:'Session 3',plan:'5 min walk + 4 x (8 min easy run / 2 min walk) + 5 min walk',warm:300,reps:4,run:480,walk:120,cool:300}
+  ],
+  5:[
+    {id:1,day:'Session 1',plan:'5 min walk + 4 x (8 min easy run / 90 sec walk) + 5 min walk',warm:300,reps:4,run:480,walk:90,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 3 x (10 min easy run / 2 min walk) + 5 min walk',warm:300,reps:3,run:600,walk:120,cool:300},
+    {id:3,day:'Session 3',plan:'5 min walk + 3 x (12 min easy run / 2 min walk) + 5 min walk',warm:300,reps:3,run:720,walk:120,cool:300}
+  ],
+  6:[
+    {id:1,day:'Session 1',plan:'5 min walk + 2 x (15 min easy run / 3 min walk) + 5 min walk',warm:300,reps:2,run:900,walk:180,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 20 min easy continuous run + 5 min walk',warm:300,continuous:1200,cool:300},
+    {id:3,day:'Session 3',plan:'5 min walk + 25 min easy continuous run + 5 min walk',warm:300,continuous:1500,cool:300}
+  ],
+  7:[
+    {id:1,day:'Session 1',plan:'5 min walk + 25 min easy continuous run + 5 min walk',warm:300,continuous:1500,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 28 min easy continuous run + 5 min walk',warm:300,continuous:1680,cool:300},
+    {id:3,day:'Session 3',plan:'5 min walk + 30 min easy continuous run + 5 min walk',warm:300,continuous:1800,cool:300}
+  ],
+  8:[
+    {id:1,day:'Session 1',plan:'5 min walk + 30 min easy continuous run + 5 min walk',warm:300,continuous:1800,cool:300},
+    {id:2,day:'Session 2',plan:'5 min walk + 35 min easy continuous run + 5 min walk',warm:300,continuous:2100,cool:300},
+    {id:3,day:'Session 3',plan:'Easy 5K attempt using run/walk whenever needed; keep effort conversational',warm:300,continuous:2400,cool:300}
+  ]
+};
+function planDefs(week=state.week){return WEEK_PLANS[Math.max(1,Math.min(8,Number(week)||1))]||WEEK_PLANS[1];}
+function planDef(sessionId,week=state.week){return planDefs(week).find(x=>Number(x.id)===Number(sessionId))||null;}
+function workoutPhases(def){if(!def)return[];const phases=[];if(def.warm)phases.push({label:'Warm-up walk',kind:'walk',sec:def.warm,cue:'Walk easily and settle your breathing.'});if(def.continuous){phases.push({label:'Easy run',kind:'run',sec:def.continuous,cue:'Run easy enough to speak in short sentences.'});}else{for(let i=1;i<=def.reps;i++){phases.push({label:`Run ${i}/${def.reps}`,kind:'run',sec:def.run,cue:'Easy running. Stay relaxed; do not chase pace.'});phases.push({label:`Walk ${i}/${def.reps}`,kind:'walk',sec:def.walk,cue:'Walk and let breathing settle.'});}}if(def.cool)phases.push({label:'Cool-down walk',kind:'walk',sec:def.cool,cue:'Walk easily and finish under control.'});return phases;}
+function expectedWorkoutSec(def){return workoutPhases(def).reduce((a,p)=>a+p.sec,0);}
+function todayKey(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function todayCheckin(){state.checkins=state.checkins||{};return state.checkins[todayKey()]||{};}
+function nextIncompleteSession(){return state.sessions.find(s=>!s.done)||null;}
+function completedWeek(){return state.sessions.length>0&&state.sessions.every(s=>s.done);}
+function recentEffortRpe(){const xs=[];state.sessions.filter(s=>s.rpe).forEach(s=>xs.push(Number(s.rpe)));realRuns().slice(0,3).filter(r=>r.rpe).forEach(r=>xs.push(Number(r.rpe)));return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;}
+function checkinReadiness(){const c=todayCheckin();if(!c.energy||!c.legs||!c.sleep)return{complete:false,label:'CHECK-IN',level:'building',score:null};const map={low:0,okay:1,good:2,sore:0,fresh:2,poor:0};const score=(map[c.energy]??1)+(map[c.legs]??1)+(map[c.sleep]??1);if(c.legs==='sore'||c.energy==='low'||score<=2)return{complete:true,label:'RECOVERY',level:'recover',score};if(score>=5)return{complete:true,label:'READY',level:'ready',score};return{complete:true,label:'STEADY',level:'steady',score};}
+function personalPrescription(){const check=checkinReadiness(),rpe=recentEffortRpe(),next=nextIncompleteSession(),last=state.coach&&state.coach.lastDebrief;if(!check.complete)return{...check,title:'Complete today’s check-in',text:'Choose Energy, Legs and Sleep. RunStart will then recommend the next training step.',action:'checkin',session:null};if(check.label==='RECOVERY')return{...check,title:'Make today easier',text:'Choose recovery or an easy walk today. Keep the planned run for a day when your check-in feels more settled.',action:'recover',session:null};if(last&&last.dateKey===todayKey()&&last.level==='recover')return{label:'RECOVERY',level:'recover',title:'Absorb today’s session',text:last.text||'Keep the rest of today easy and let the session settle before your next planned run.',action:'recover',session:null};if(rpe!==null&&rpe>=8)return{label:'RECOVERY',level:'recover',title:'Absorb the last effort',text:'Recent effort was high. Repeat an easier session or take recovery before progressing.',action:'recover',session:null};if(next)return{...check,title:`${next.day} is next`,text:next.plan,action:'session',session:next};if(completedWeek()&&state.week<8&&(rpe===null||rpe<=7))return{...check,label:'PROGRESS',level:'ready',title:`Week ${state.week} complete`,text:`Your completed sessions and effort support moving to Week ${state.week+1}.`,action:'advance',session:null};if(completedWeek()&&state.week>=8)return{...check,label:'COMPLETE',level:'ready',title:'Eight-week plan complete',text:'Keep easy running consistent. Use run/walk whenever needed and build from successful, controlled sessions.',action:'complete',session:null};return{...check,label:'HOLD',level:'steady',title:'Repeat before progressing',text:'Stay with this week until the sessions feel controlled and recovery is comfortable.',action:'hold',session:null};}
+function applyWeekPlan(week){const w=Math.max(1,Math.min(8,Number(week)||1));state.week=w;state.sessions=planDefs(w).map(x=>({id:x.id,day:x.day,plan:x.plan,done:false,rpe:null}));state.coach=state.coach||{};state.coach.selectedSessionId=null;save();renderCoach();}
+function ensureCurrentPlanText(){const defs=planDefs();if(!Array.isArray(state.sessions)||state.sessions.length!==defs.length)return;state.sessions.forEach(s=>{const d=defs.find(x=>x.id===s.id);if(d&&state.week>1)s.plan=d.plan;});}
+ensureCurrentPlanText();
+
+function recentRealRuns(n=6){return realRuns().slice(0,n);}
+function avgSessionRpe(){const xs=state.sessions.filter(s=>s.rpe).map(s=>Number(s.rpe));return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;}
+function consistencyScore(){const done=state.sessions.filter(s=>s.done).length/state.sessions.length;const recent=runsSince(14).length;return Math.max(0,Math.min(100,Math.round(done*60+Math.min(1,recent/4)*40)));}
+function recentPaceTrend(){const xs=recentRealRuns(4).map(r=>paceMinutes(r.distanceM,r.durationMs)).filter(x=>x&&x<60);if(xs.length<2)return null;return xs[0]-xs[xs.length-1];}
+function trainingInsight(){
+  const rpe=recentEffortRpe(),done=state.sessions.filter(s=>s.done).length,cons=consistencyScore(),trend=recentPaceTrend(),recent=runsSince(7);
+  let label='BUILDING',text='Build consistency first. Keep easy sessions conversational and focus on completing the planned run/walk structure.';
+  if(rpe>=8){label='RECOVER';text='Recent effort is high. Repeat an easy session or add recovery before progressing volume.';}
+  else if(done===state.sessions.length && (rpe===null||rpe<=6.5) && recent.length>=2){label='READY';text='Consistency and perceived effort support a small progression. Increase only one variable at a time—duration or running interval, not both.';}
+  else if(cons>=70){label='STEADY';text='Your consistency is building. Hold the current week until sessions feel controlled, then progress gradually.';}
+  if(trend!==null&&trend>0.4)text+=' Recent pace is improving, but keep easy days easy.';
+  return{label,text,cons,rpe,run7:recent.length};
+}
+function renderPersonalCoach(){
+  const p=personalPrescription(),c=todayCheckin();
+  const badge=$('#coachTodayStatus');if(!badge)return;
+  badge.textContent=p.label;badge.className=`mode-badge readiness ${p.level||'building'}`;
+  $('#coachTodayTitle').textContent=p.title;$('#coachTodayText').textContent=p.text;
+  document.querySelectorAll('[data-checkin]').forEach(b=>b.classList.toggle('selected',c[b.dataset.checkin]===b.dataset.value));
+  const plan=$('#coachTodayPlan'),start=$('#startCoachedSession'),advance=$('#advanceWeek');
+  start.disabled=true;start.classList.remove('hidden');advance.classList.add('hidden');
+  if(p.action==='session'&&p.session){const def=planDef(p.session.id),mins=Math.round(expectedWorkoutSec(def)/60);plan.innerHTML=`<span>Coach recommendation</span><strong>${p.session.day} · about ${mins} min</strong><small>${p.session.plan}</small>`;start.disabled=false;start.textContent='Start coached session';}
+  else if(p.action==='advance'){plan.innerHTML=`<span>Coach recommendation</span><strong>Move to Week ${state.week+1}</strong><small>The next week increases only one training step at a time.</small>`;start.classList.add('hidden');advance.classList.remove('hidden');advance.textContent=`Advance to Week ${state.week+1}`;}
+  else if(p.action==='recover'){plan.innerHTML='<span>Coach recommendation</span><strong>Recovery / easy walk</strong><small>Do not force the planned run today. Return to it when your check-in is more settled.</small>';start.classList.add('hidden');}
+  else if(p.action==='complete'){plan.innerHTML='<span>Coach recommendation</span><strong>Maintain easy consistency</strong><small>The 8-week beginner progression is complete. Keep most running easy and use run/walk as needed.</small>';start.classList.add('hidden');}
+  else{plan.innerHTML=`<span>Next step</span><strong>${p.action==='checkin'?'Complete the check-in':'Hold this week'}</strong><small>${p.action==='checkin'?'Your planned workout will appear here.':'Repeat a controlled session before progressing.'}</small>`;start.classList.add('hidden');}
+}
+function renderCoachIntelligence(){
+  const box=$('#coachInsight'),grid=$('#coachMetrics'),badge=$('#readinessBadge');if(!box||!grid||!badge)return;
+  const x=trainingInsight();badge.textContent=x.label;badge.className='mode-badge readiness '+x.label.toLowerCase();box.textContent=x.text;
+  grid.innerHTML=`<div><span>Consistency</span><strong>${x.cons}%</strong></div><div><span>Avg RPE</span><strong>${x.rpe?x.rpe.toFixed(1):'—'}</strong></div><div><span>REAL runs · 7d</span><strong>${x.run7}</strong></div>`;
+}
+function renderCoach(){
+  $('#week').textContent=state.week;$('#goal').textContent=state.profile.goal;$('#weightInput').value=state.profile.weightKg;
+  const bmi=state.profile.weightKg/Math.pow(state.profile.heightCm/100,2);$('#bmi').textContent=`BMI ${bmi.toFixed(1)}`;
+  const completed=state.sessions.filter(s=>s.done).length;$('#score').textContent=Math.round(completed/state.sessions.length*100);
+  const rpes=state.sessions.filter(s=>s.rpe).map(s=>s.rpe);const avg=rpes.length?rpes.reduce((a,b)=>a+b,0)/rpes.length:null;
+  $('#coachText').textContent=avg>=8?'Keep the next session easy or repeat the week.':completed===3&&avg&&avg<=6.5?'Good consistency. You are ready for a small progression.':'Keep the effort conversational and finish feeling you could do a little more.';
+  const root=$('#sessions');root.innerHTML='';
+  for(const s of state.sessions){const el=document.createElement('article');el.className='session'+(s.done?' done':'');el.innerHTML=`<div class="session-top"><h4>${s.day}</h4><span class="muted">Easy effort</span></div><p>${s.plan}</p><div class="controls"><label class="check"><input data-done="${s.id}" type="checkbox" ${s.done?'checked':''}> Completed</label><label class="rpe">RPE <select data-rpe="${s.id}"><option value="">-</option>${[1,2,3,4,5,6,7,8,9,10].map(v=>`<option value="${v}" ${s.rpe===v?'selected':''}>${v}</option>`).join('')}</select></label></div>`;root.appendChild(el);}
+  document.querySelectorAll('[data-done]').forEach(x=>x.onchange=()=>{const s=state.sessions.find(s=>String(s.id)===x.dataset.done);s.done=x.checked;save();renderCoach();});
+  document.querySelectorAll('[data-rpe]').forEach(x=>x.onchange=()=>{const s=state.sessions.find(s=>String(s.id)===x.dataset.rpe);s.rpe=x.value?Number(x.value):null;save();renderCoach();});  renderCoachIntelligence();renderPersonalCoach();
+}
+
+$('#weightForm').onsubmit=e=>{e.preventDefault();const kg=Number($('#weightInput').value);if(kg>=30&&kg<=300){state.profile.weightKg=kg;save();renderCoach();}};
+document.querySelectorAll('[data-checkin]').forEach(b=>b.onclick=()=>{state.checkins=state.checkins||{};const key=todayKey();state.checkins[key]={...(state.checkins[key]||{}),[b.dataset.checkin]:b.dataset.value,updatedAt:new Date().toISOString()};save();renderCoach();});
+$('#startCoachedSession').onclick=()=>{const p=personalPrescription();if(p.action!=='session'||!p.session)return;state.coach=state.coach||{};state.coach.selectedSessionId=p.session.id;save();setMode('real');renderCoachedRunCard();switchTab('run');};
+$('#advanceWeek').onclick=()=>{if(state.week>=8)return;if(!confirm(`Move from Week ${state.week} to Week ${state.week+1}? This starts three new coaching sessions.`))return;applyWeekPlan(state.week+1);};
+
+const tracker={mode:'real',active:false,paused:false,watchId:null,simTimer:null,startWall:null,pauseStartedWall:null,pausedWallMs:0,clockScale:1,simElapsedMs:0,simPausedMs:0,simEpoch:null,timer:null,points:[],distanceM:0,lastAccepted:null,segments:[],splits:[],nextSplitM:1000,lastSplitElapsed:0,bearing:80,coachSessionId:null,coachWeek:null,coachPhasesSeen:[],lastCoachPhaseIndex:-1,simBase:{lat:51.505,lon:-0.09}};
+const simLab={scenario:'easy1k',speed:40,targetM:1000,targetMs:null,paceSecPerKm:450,autoFinish:true,pauseInjected:false,statsBefore:null,historyBefore:0,startedAt:null,coachSessionDoneBefore:null};
+const SIM_SCENARIOS={easy1k:{targetM:1000,pace:450,expectedMs:450000,label:'1.00 km',expected:'07:30',purpose:'Splits + route + save'},steady5k:{targetM:5000,pace:390,expectedMs:1950000,label:'5.00 km',expected:'32:30',purpose:'5 splits + best efforts'},interval3k:{targetM:3000,pace:420,expectedMs:1215000,label:'3.00 km',expected:'20:15',purpose:'Variable current pace'},pause2k:{targetM:2000,pace:420,expectedMs:840000,label:'2.00 km',expected:'14:00 + 01:00 pause',purpose:'Pause/resume + splits'}};
+function rawWallElapsed(){if(!tracker.startWall)return 0;const now=tracker.paused&&tracker.pauseStartedWall?tracker.pauseStartedWall:Date.now();return now-tracker.startWall-tracker.pausedWallMs;}
+function elapsed(){return tracker.mode==='simulation'?tracker.simElapsedMs:rawWallElapsed();}
+function pausedDisplayMs(){if(tracker.mode==='simulation')return tracker.simPausedMs+(tracker.paused&&tracker.pauseStartedWall?(Date.now()-tracker.pauseStartedWall)*tracker.clockScale:0);return tracker.pausedWallMs+(tracker.paused&&tracker.pauseStartedWall?(Date.now()-tracker.pauseStartedWall):0);}
+function status(text,kind=''){const el=$('#gpsStatus');el.textContent=text;el.className='gps-pill'+(kind?` ${kind}`:'');}
+function activeCoachDef(){const sid=tracker.coachSessionId||(state.coach&&state.coach.selectedSessionId);return sid?planDef(sid,tracker.coachWeek||state.week):null;}
+function coachPhaseState(def,sec=elapsed()/1000){const phases=workoutPhases(def),total=phases.reduce((a,p)=>a+p.sec,0);if(!phases.length)return{phases,total:0,idx:0,current:null,next:null,phaseElapsed:0,phaseRemaining:0,overallPct:0,phasePct:0};let acc=0,current=phases[phases.length-1],idx=phases.length-1,phaseElapsed=current.sec;for(let i=0;i<phases.length;i++){if(sec<acc+phases[i].sec){current=phases[i];idx=i;phaseElapsed=Math.max(0,sec-acc);break;}acc+=phases[i].sec;}const done=sec>=total,phaseRemaining=done?0:Math.max(0,current.sec-phaseElapsed);return{phases,total,idx,current,next:phases[idx+1]||null,phaseElapsed,phaseRemaining,done,overallPct:total?Math.max(0,Math.min(100,sec/total*100)):0,phasePct:current.sec?Math.max(0,Math.min(100,phaseElapsed/current.sec*100)):0};}
+function renderCoachedRunCard(){const sid=state.coach&&state.coach.selectedSessionId,def=sid?planDef(sid):null,card=$('#coachCueCard');if(!card)return;if(!def){card.classList.add('hidden');return;}const cs=coachPhaseState(def,0);card.classList.remove('hidden');$('#coachSessionLabel').textContent=`Week ${state.week} · ${def.day}`;$('#coachPhaseBadge').textContent='READY';$('#coachCue').textContent='Start when you are ready';$('#coachNextCue').textContent=def.plan;$('#coachPhaseMeta').textContent=`${cs.phases.length} guided phases`;$('#coachCountdown').textContent=fmtTime(cs.total*1000);$('#coachSessionProgressText').textContent=`00:00 / ${fmtTime(cs.total*1000)}`;$('#coachPhaseProgress').style.width='0%';$('#coachOverallProgress').style.width='0%';}
+function updateCoachCue(){const card=$('#coachCueCard');if(!card)return;const def=activeCoachDef();if(!def){card.classList.add('hidden');return;}card.classList.remove('hidden');const sec=elapsed()/1000,cs=coachPhaseState(def,sec);if(!cs.current)return;const phaseNo=Math.min(cs.idx+1,cs.phases.length);$('#coachSessionLabel').textContent=`Week ${tracker.coachWeek||state.week} · ${def.day}`;$('#coachPhaseBadge').textContent=tracker.paused?'PAUSED':(cs.done?'DONE':cs.current.kind.toUpperCase());$('#coachCue').textContent=cs.done?'Planned session complete':cs.current.label;$('#coachNextCue').textContent=cs.done?'Session target reached. Finish under control.':`${cs.current.cue}${cs.next?` Next: ${cs.next.label}.`:''}`;$('#coachPhaseMeta').textContent=cs.done?`${cs.phases.length}/${cs.phases.length} phases complete`:`Phase ${phaseNo} of ${cs.phases.length}`;$('#coachCountdown').textContent=fmtTime(cs.phaseRemaining*1000);$('#coachSessionProgressText').textContent=`${fmtTime(Math.min(sec,cs.total)*1000)} / ${fmtTime(cs.total*1000)}`;$('#coachPhaseProgress').style.width=`${cs.done?100:cs.phasePct}%`;$('#coachOverallProgress').style.width=`${cs.done?100:cs.overallPct}%`;if(tracker.active&&!tracker.paused&&!cs.done&&!tracker.coachPhasesSeen.includes(cs.idx)){tracker.coachPhasesSeen.push(cs.idx);tracker.lastCoachPhaseIndex=cs.idx;}}
+$('#cancelCoachedSession').onclick=()=>{if(tracker.active){alert('Finish the current run before switching to free-run mode.');return;}state.coach=state.coach||{};state.coach.selectedSessionId=null;save();renderCoachedRunCard();};
+$('#testCoachedSession').onclick=()=>{if(tracker.active){alert('Finish the current run first.');return;}const sid=state.coach&&state.coach.selectedSessionId,def=sid?planDef(sid):null;if(!def){alert('Choose a coached session from the Coach tab first.');return;}setMode('simulation');$('#simScenario').value='coached';$('#simSpeed').value='80';$('#simAutoFinish').checked=true;configureSimLab();startRun();};
+
+function setMode(mode){if(tracker.active)return;tracker.mode=mode;const sim=mode==='simulation';tracker.clockScale=sim?simLab.speed:1;$('#realMode').classList.toggle('active',!sim);$('#simMode').classList.toggle('active',sim);$('#modeBadge').textContent=sim?'TEST SIM LAB':'REAL GPS';$('#modeBadge').classList.toggle('sim',sim);$('#simulationLab').classList.toggle('hidden',!sim);$('#modeHelp').textContent=sim?`TEST MODE ONLY: deterministic ${simLab.speed}× Simulation Lab. TEST activities are excluded from every REAL statistic/trend.`:'Uses iPhone GPS. Keep RunStart open for the most reliable tracking.';status(sim?'Simulator idle':'GPS idle');}
+$('#realMode').onclick=()=>setMode('real');$('#simMode').onclick=()=>setMode('simulation');
+function configureSimLab(){const key=$('#simScenario').value;simLab.scenario=key;simLab.speed=Number($('#simSpeed').value)||40;simLab.autoFinish=$('#simAutoFinish').checked;simLab.targetMs=null;if(key==='coached'){const sid=state.coach&&state.coach.selectedSessionId,def=sid?planDef(sid):null;if(!def){$('#simTarget').textContent='No session selected';$('#simExpected').textContent='—';$('#simPurpose').textContent='Choose a coached session first';const a=$('#simAudit');a.className='diagnostic-status sim-audit-warn';a.innerHTML='<strong>Coached simulation unavailable</strong><span>Return to Coach, complete the check-in, then choose Start coached session.</span>';return;}simLab.targetM=null;simLab.targetMs=expectedWorkoutSec(def)*1000;simLab.paceSecPerKm=null;$('#simTarget').textContent=`Week ${state.week} · ${def.day}`;$('#simExpected').textContent=fmtTime(simLab.targetMs);$('#simPurpose').textContent='All coach phases + cues + TEST isolation';}else{const cfg=SIM_SCENARIOS[key];simLab.targetM=cfg.targetM;simLab.paceSecPerKm=cfg.pace;$('#simTarget').textContent=cfg.label;$('#simExpected').textContent=cfg.expected;$('#simPurpose').textContent=cfg.purpose;}tracker.clockScale=simLab.speed;const a=$('#simAudit');a.className='diagnostic-status';a.innerHTML=`<strong>Ready: ${$('#simScenario').selectedOptions[0].textContent}</strong><span>${simLab.speed}× speed · ${simLab.autoFinish?'auto-finish ON':'manual finish'} · TEST only.</span>`;if(tracker.mode==='simulation')$('#modeHelp').textContent=`TEST MODE ONLY: deterministic ${simLab.speed}× Simulation Lab. TEST activities are excluded from every REAL statistic/trend.`;}
+$('#simScenario').onchange=configureSimLab;$('#simSpeed').onchange=configureSimLab;$('#simAutoFinish').onchange=configureSimLab;configureSimLab();
+function currentPace(){const e=elapsed(),cutoff=e-90000;const recent=tracker.segments.filter(s=>s.e>=cutoff);const d=recent.reduce((a,s)=>a+s.d,0),ms=recent.reduce((a,s)=>a+s.dtMs,0);return d>=20?fmtPace(d,ms,15):'--:--';}
+function renderLiveSplits(){const root=$('#liveSplits');root.innerHTML='';if(!tracker.splits.length){root.innerHTML='<p class="muted small">Splits will appear after each completed kilometer.</p>';return;}tracker.splits.forEach(s=>{const row=document.createElement('div');row.className='split-row';row.innerHTML=`<span>Km ${s.km}</span><strong>${fmtTime(s.splitMs)}</strong><span>${fmtPace(1000,s.splitMs,1)} /km</span>`;root.appendChild(row);});}
+function updateMetrics(){const e=elapsed();$('#runTime').textContent=fmtTime(e);$('#runDistance').textContent=(tracker.distanceM/1000).toFixed(2);$('#runPace').textContent=currentPace();$('#avgPace').textContent=fmtPace(tracker.distanceM,e);$('#pauseTime').textContent=fmtTime(pausedDisplayMs());$('#pointCount').textContent=`${tracker.points.length} points`;renderLiveSplits();updateCoachCue();}
+function interpolateSplits(oldDistance,newDistance,prevE,currE,d){const epsilonM=tracker.mode==='simulation'?0.25:0.02;while(tracker.nextSplitM<=newDistance+epsilonM){const ratio=d>0?(tracker.nextSplitM-oldDistance)/d:1;const crossE=prevE+(currE-prevE)*Math.max(0,Math.min(1,ratio));const splitMs=crossE-tracker.lastSplitElapsed;tracker.splits.push({km:tracker.nextSplitM/1000,splitMs,cumulativeMs:crossE});tracker.lastSplitElapsed=crossE;tracker.nextSplitM+=1000;}}
+function processPoint(p,{bypassFilter=false}={}){
+  if(!tracker.active||tracker.paused)return;
+  $('#runAccuracy').textContent=Math.round(p.acc)||'—';
+  if(tracker.mode==='simulation')status('SIM active','fair');else status(p.acc<=20?'GPS good':p.acc<=45?'GPS fair':'GPS weak',p.acc<=20?'good':p.acc<=45?'fair':'weak');
+  if(!bypassFilter&&p.acc>65)return;
+  if(tracker.lastAccepted){
+    const d=hav(tracker.lastAccepted,p),prevE=tracker.lastAccepted.e??0,currE=p.e??elapsed(),dtMs=Math.max(250,currE-prevE),speed=d/(dtMs/1000),minMove=bypassFilter?0:Math.max(2.5,Math.min(8,p.acc*0.18));
+    if(!bypassFilter&&d<minMove)return;if(!bypassFilter&&speed>8.5)return;
+    const oldDistance=tracker.distanceM,newDistance=oldDistance+d;interpolateSplits(oldDistance,newDistance,prevE,currE,d);tracker.distanceM=newDistance;tracker.segments.push({d,e:currE,dtMs});
+  }
+  tracker.lastAccepted=p;tracker.points.push(p);updateMetrics();updateLiveMap();
+}
+function acceptPosition(pos){const c=pos.coords;processPoint({lat:c.latitude,lon:c.longitude,acc:Number(c.accuracy)||999,t:pos.timestamp||Date.now(),e:elapsed()});}
+function geoError(err){status(err.code===1?'Location denied':'GPS unavailable','weak');$('#trackerStatus').textContent='Location needed';}
+function startWatch(){if(!navigator.geolocation){status('GPS unsupported','weak');return;}tracker.watchId=navigator.geolocation.watchPosition(acceptPosition,geoError,{enableHighAccuracy:true,maximumAge:500,timeout:15000});}
+function stopWatch(){if(tracker.watchId!==null){navigator.geolocation.clearWatch(tracker.watchId);tracker.watchId=null;}}
+function startSimulation(){let p=tracker.lastAccepted||{...tracker.simBase,e:tracker.simElapsedMs,t:tracker.simEpoch||Date.now(),acc:4};if(!tracker.lastAccepted)processPoint(p,{bypassFilter:true});tracker.simTimer=setInterval(()=>{if(!tracker.active||tracker.paused)return;const requestedVirtualMs=500*tracker.clockScale;if(simLab.scenario==='coached'){const def=activeCoachDef();if(!def){alert('No coached session is selected.');finishRun();return;}const targetMs=simLab.targetMs||expectedWorkoutSec(def)*1000,remainingMs=Math.max(0,targetMs-tracker.simElapsedMs);if(remainingMs<=0){if(tracker.active)finishRun();return;}const stepVirtualMs=Math.min(requestedVirtualMs,remainingMs),cs=coachPhaseState(def,tracker.simElapsedMs/1000),pace=cs.current&&cs.current.kind==='walk'?720:450,stepM=Math.max(0.5,stepVirtualMs/pace);tracker.simElapsedMs+=stepVirtualMs;tracker.bearing=(tracker.bearing+1.7)%360;const next=destination(p,stepM,tracker.bearing);p={...next,acc:4,t:(tracker.simEpoch||Date.now())+tracker.simElapsedMs+tracker.simPausedMs,e:tracker.simElapsedMs};processPoint(p,{bypassFilter:true});if(simLab.autoFinish&&tracker.simElapsedMs>=targetMs-1&&tracker.active)setTimeout(()=>{if(tracker.active)finishRun();},30);return;}const km=tracker.distanceM/1000;let pace=simLab.paceSecPerKm;if(simLab.scenario==='interval3k'){const phase=Math.floor(km*4)%4;pace=[480,390,330,420][phase];}let stepM=Math.max(1,Math.min(55,requestedVirtualMs/pace));if(simLab.autoFinish)stepM=Math.min(stepM,Math.max(0,simLab.targetM-tracker.distanceM));if(stepM<=0){if(tracker.active)finishRun();return;}const stepVirtualMs=stepM*pace;tracker.simElapsedMs+=stepVirtualMs;tracker.bearing=(tracker.bearing+(simLab.scenario==='steady5k'?1.1:2.2))%360;const next=destination(p,stepM,tracker.bearing);p={...next,acc:4,t:(tracker.simEpoch||Date.now())+tracker.simElapsedMs+tracker.simPausedMs,e:tracker.simElapsedMs};processPoint(p,{bypassFilter:true});if(simLab.scenario==='pause2k'&&!simLab.pauseInjected&&tracker.distanceM>=1000){simLab.pauseInjected=true;const beforePause=tracker.simPausedMs;pauseRun();const virtualPauseMs=60000;setTimeout(()=>{if(tracker.active&&tracker.paused){pauseRun();tracker.simPausedMs=beforePause+virtualPauseMs;updateMetrics();}},Math.max(100,virtualPauseMs/tracker.clockScale));}if(simLab.autoFinish&&tracker.distanceM>=simLab.targetM-0.01&&tracker.active){setTimeout(()=>{if(tracker.active)finishRun();},30);}},500);}
+function stopSimulation(){if(tracker.simTimer){clearInterval(tracker.simTimer);tracker.simTimer=null;}}
+function startSource(){tracker.mode==='simulation'?startSimulation():startWatch();}
+function stopSource(){tracker.mode==='simulation'?stopSimulation():stopWatch();}
+function resetTracker(){Object.assign(tracker,{active:false,paused:false,watchId:null,simTimer:null,startWall:null,pauseStartedWall:null,pausedWallMs:0,simElapsedMs:0,simPausedMs:0,simEpoch:null,timer:null,points:[],distanceM:0,lastAccepted:null,segments:[],splits:[],nextSplitM:1000,lastSplitElapsed:0,bearing:80,coachSessionId:null,coachWeek:null,coachPhasesSeen:[],lastCoachPhaseIndex:-1});simLab.pauseInjected=false;}
+function setModeControls(disabled){$('#realMode').disabled=disabled;$('#simMode').disabled=disabled;}
+function startRun(){if(tracker.active)return;const mode=tracker.mode,scale=mode==='simulation'?simLab.speed:1,selectedCoach=(state.coach&&state.coach.selectedSessionId)||null,useCoach=!!selectedCoach&&(mode==='real'||(mode==='simulation'&&simLab.scenario==='coached'));resetTracker();tracker.mode=mode;tracker.clockScale=scale;tracker.coachSessionId=useCoach?selectedCoach:null;tracker.coachWeek=useCoach?state.week:null;if(mode==='simulation'){simLab.statsBefore=JSON.stringify(aggregate(realRuns()));simLab.historyBefore=state.runs.length;simLab.startedAt=Date.now();const session=useCoach?state.sessions.find(s=>Number(s.id)===Number(selectedCoach)):null;simLab.coachSessionDoneBefore=session?!!session.done:null;const a=$('#simAudit');a.className='diagnostic-status';a.innerHTML=`<strong>${simLab.scenario==='coached'?'Coached-session simulation running…':'Simulation running…'}</strong><span>${simLab.scenario==='coached'?'Every planned coach phase will be previewed at TEST speed.':'Full TEST pipeline is being exercised.'}</span>`;}tracker.active=true;tracker.startWall=Date.now();if(mode==='simulation')tracker.simEpoch=Date.now();$('#trackerStatus').textContent=mode==='simulation'?'Simulating':'Running';$('#startRun').disabled=true;$('#pauseRun').disabled=false;$('#finishRun').disabled=false;$('#pauseRun').textContent='Pause';setModeControls(true);status(mode==='simulation'?'Starting simulator':'Requesting GPS');startSource();tracker.timer=setInterval(updateMetrics,500);updateMetrics();resetLiveMap();}
+function pauseRun(){if(!tracker.active)return;if(!tracker.paused){tracker.paused=true;tracker.pauseStartedWall=Date.now();stopSource();$('#trackerStatus').textContent='Paused';$('#pauseRun').textContent='Resume';status(tracker.mode==='simulation'?'SIM paused':'GPS paused');}else{const pauseWall=Date.now()-tracker.pauseStartedWall;tracker.paused=false;if(tracker.mode==='simulation')tracker.simPausedMs+=pauseWall*tracker.clockScale;else tracker.pausedWallMs+=pauseWall;tracker.pauseStartedWall=null;$('#trackerStatus').textContent=tracker.mode==='simulation'?'Simulating':'Running';$('#pauseRun').textContent='Pause';status(tracker.mode==='simulation'?'Restarting SIM':'Restarting GPS');startSource();}updateMetrics();}
+function avgAccuracy(points){const xs=points.filter(p=>Number.isFinite(p.acc));return xs.length?Math.round(xs.reduce((a,p)=>a+p.acc,0)/xs.length):null;}
+function auditSimulation(run){if(run.mode!=='simulation')return null;const checks=[];checks.push(['TEST flag',isTestRun(run)]);checks.push(['Route points',run.points.length>=10]);checks.push(['REAL stats isolated',JSON.stringify(aggregate(realRuns()))===simLab.statsBefore]);if(simLab.scenario==='coached'){const def=run.coachPreviewSessionId?planDef(run.coachPreviewSessionId,run.coachPreviewWeek):null,phases=workoutPhases(def),expectedMs=def?expectedWorkoutSec(def)*1000:0,session=state.sessions.find(s=>Number(s.id)===Number(run.coachPreviewSessionId));checks.push(['Coach preview tagged',run.coachPreview===true]);checks.push(['Planned active time',Math.abs(run.durationMs-expectedMs)<=1500]);checks.push(['All coach phases',run.coachPhaseCount>=phases.length]);checks.push(['Coach session unchanged',session?!!session.done===!!simLab.coachSessionDoneBefore:true]);const passed=checks.filter(x=>x[1]).length,all=checks.length,a=$('#simAudit');a.className='diagnostic-status '+(passed===all?'sim-audit-pass':'sim-audit-warn');a.innerHTML=`<strong>Coached simulation audit ${passed===all?'PASS':'CHECK'} · ${passed}/${all}</strong><span>${checks.map(c=>`${c[1]?'✓':'×'} ${c[0]}`).join(' · ')}</span><span>${def?`Week ${run.coachPreviewWeek} · ${def.day} · ${phases.length} phases · ${fmtTime(expectedMs)} planned.`:'Coached session definition unavailable.'}</span>`;return{kind:'coached',passed,all,ok:passed===all,phaseCount:run.coachPhaseCount,phaseTotal:phases.length,expectedMs};}const cfg=SIM_SCENARIOS[simLab.scenario];const expectedPaceSec=cfg.expectedMs/(cfg.targetM/1000)/1000,actualPaceSec=run.durationMs/(run.distanceM/1000)/1000;checks.push(['Distance target',Math.abs(run.distanceM-cfg.targetM)<=3]);checks.push(['Active time',Math.abs(run.durationMs-cfg.expectedMs)<=1500]);checks.push(['Average pace',Math.abs(actualPaceSec-expectedPaceSec)<=2]);checks.push(['Splits',run.splits.length>=Math.floor(cfg.targetM/1000)]);if(simLab.scenario==='pause2k'){checks.push(['Pause recorded',(run.pausedMs||0)>0]);checks.push(['Pause duration',Math.abs((run.pausedMs||0)-60000)<=3000]);}const passed=checks.filter(x=>x[1]).length,all=checks.length,a=$('#simAudit');a.className='diagnostic-status '+(passed===all?'sim-audit-pass':'sim-audit-warn');a.innerHTML=`<strong>Simulation audit ${passed===all?'PASS':'CHECK'} · ${passed}/${all}</strong><span>${checks.map(c=>`${c[1]?'✓':'×'} ${c[0]}`).join(' · ')}</span><span>Target ${cfg.label} · ${fmtTime(cfg.expectedMs)} active · actual ${(run.distanceM/1000).toFixed(2)} km · ${fmtTime(run.durationMs)} · ${run.pace}/km.</span>`;return{kind:'standard',passed,all,ok:passed===all};}
+function finishRun(){
+  if(!tracker.active)return;if(tracker.paused&&tracker.pauseStartedWall){const pauseWall=Date.now()-tracker.pauseStartedWall;if(tracker.mode==='simulation')tracker.simPausedMs+=pauseWall*tracker.clockScale;else tracker.pausedWallMs+=pauseWall;tracker.pauseStartedWall=null;}
+  const durationMs=elapsed(),pausedMs=tracker.mode==='simulation'?tracker.simPausedMs:tracker.pausedWallMs;stopSource();clearInterval(tracker.timer);tracker.timer=null;
+  if(tracker.mode==='simulation'){const completedKm=Math.floor((tracker.distanceM+0.25)/1000);while(tracker.splits.length<completedKm){const km=tracker.splits.length+1;const cumulativeMs=Math.min(durationMs,Math.round((km*1000/Math.max(tracker.distanceM,1))*durationMs));const prior=tracker.splits.length?tracker.splits[tracker.splits.length-1].cumulativeMs:0;tracker.splits.push({km,splitMs:cumulativeMs-prior,cumulativeMs});}}
+  const coachPreview=tracker.mode==='simulation'&&simLab.scenario==='coached'&&!!tracker.coachSessionId;const run={id:Date.now(),date:new Date().toISOString(),mode:tracker.mode,isTest:tracker.mode==='simulation',coachSessionId:tracker.mode==='real'?tracker.coachSessionId:null,coachWeek:tracker.mode==='real'?tracker.coachWeek:null,coachPreview,coachPreviewSessionId:coachPreview?tracker.coachSessionId:null,coachPreviewWeek:coachPreview?tracker.coachWeek:null,coachPhaseCount:coachPreview?tracker.coachPhasesSeen.length:0,durationMs,pausedMs,distanceM:Math.round(tracker.distanceM),pace:fmtPace(tracker.distanceM,durationMs),avgAccuracy:avgAccuracy(tracker.points),splits:tracker.splits,points:tracker.points.map(p=>({lat:+p.lat.toFixed(6),lon:+p.lon.toFixed(6),t:p.t,acc:Math.round(p.acc)}))};
+  if(durationMs>=10000||tracker.distanceM>=20){state.runs.unshift(run);run.simAudit=auditSimulation(run);save();showSummary(run);}else{alert('Run was too short to save.');}
+  
+  tracker.active=false;tracker.paused=false;$('#trackerStatus').textContent='Saved';$('#startRun').disabled=false;$('#pauseRun').disabled=true;$('#finishRun').disabled=true;setModeControls(false);status(tracker.mode==='simulation'?'Simulator idle':'GPS idle');renderHistory();renderStats();renderRoutes();
+}
+
+let liveMap=null,liveLine=null,liveMarker=null,detailMap=null,detailLine=null;
+function makeMap(id){if(typeof L==='undefined')return null;const map=L.map(id,{zoomControl:true,attributionControl:true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);return map;}
+function ensureLiveMap(){if(!liveMap){liveMap=makeMap('liveMap');if(liveMap){liveLine=L.polyline([],{color:'#60a5fa',weight:5,opacity:.95}).addTo(liveMap);liveMap.setView([0,0],2);}}setTimeout(()=>liveMap?.invalidateSize(),100);}
+function resetLiveMap(){ensureLiveMap();if(!liveMap)return;liveLine.setLatLngs([]);if(liveMarker){liveMap.removeLayer(liveMarker);liveMarker=null;}$('#mapHint').style.display='block';liveMap.setView([0,0],2);}
+function updateLiveMap(){ensureLiveMap();if(!liveMap||!tracker.points.length)return;const latlngs=tracker.points.map(p=>[p.lat,p.lon]);liveLine.setLatLngs(latlngs);const last=latlngs[latlngs.length-1];if(!liveMarker)liveMarker=L.circleMarker(last,{radius:7,color:'#f8fafc',fillColor:'#22c55e',fillOpacity:1,weight:2}).addTo(liveMap);else liveMarker.setLatLng(last);$('#mapHint').style.display='none';if(latlngs.length===1)liveMap.setView(last,17);else if(latlngs.length<5||latlngs.length%8===0)liveMap.fitBounds(liveLine.getBounds(),{padding:[25,25],maxZoom:18});}
+function showDetailMap(points){if(typeof L==='undefined')return;if(detailMap){detailMap.remove();detailMap=null;}detailMap=makeMap('detailMap');if(!detailMap)return;const latlngs=(points||[]).map(p=>[p.lat,p.lon]);if(latlngs.length){detailLine=L.polyline(latlngs,{color:'#60a5fa',weight:5}).addTo(detailMap);L.circleMarker(latlngs[0],{radius:6,color:'#fff',fillColor:'#22c55e',fillOpacity:1}).addTo(detailMap).bindTooltip('Start');L.circleMarker(latlngs[latlngs.length-1],{radius:6,color:'#fff',fillColor:'#ef4444',fillOpacity:1}).addTo(detailMap).bindTooltip('Finish');detailMap.fitBounds(detailLine.getBounds(),{padding:[25,25],maxZoom:18});}else detailMap.setView([0,0],2);setTimeout(()=>detailMap?.invalidateSize(),120);}
+
+function coachDebriefDecision(rpe,feel){rpe=Number(rpe)||0;if(feel==='hard'||rpe>=8)return{label:'RECOVERY',level:'recover',title:'Recover before the next run',text:'That session was demanding. Keep the rest of today easy and use tomorrow’s check-in before deciding whether to run again.'};if(feel==='easy'&&rpe<=5)return{label:'READY',level:'ready',title:'Controlled effort',text:'The session felt comfortably manageable. Continue to the next planned session after normal recovery; do not add extra intensity.'};return{label:'STEADY',level:'steady',title:'Stay with the plan',text:'The effort was appropriate. Recover normally and use the next daily check-in before the next planned session.'};}
+function renderDebriefNext(run){const el=$('#postRunCoachNext');if(!el)return;const d=run&&run.coachDecision;if(!d){el.className='debrief-next hidden';el.innerHTML='';return;}el.className=`debrief-next ${d.level||'steady'}`;el.innerHTML=`<span>Coach next step · ${d.label}</span><strong>${d.title}</strong><small>${d.text}</small>`;}
+
+let lastSummaryRunId=null;
+function showSummary(run){const test=isTestRun(run);lastSummaryRunId=run.id;$('#summaryDistance').textContent=`${(run.distanceM/1000).toFixed(2)} km`;$('#summaryTime').textContent=fmtTime(run.durationMs);$('#summaryPace').textContent=`${run.pace} /km`;$('#summaryPaused').textContent=fmtTime(run.pausedMs||0);$('#summarySplits').textContent=`${run.splits.length} full km`;$('#summaryMode').textContent=run.coachPreview?'TEST coached preview':modeLabel(run);$('#summaryTitle').textContent=run.coachPreview?'Coached session preview saved':(test?'Test activity saved':'Run saved');$('#summaryNotice').classList.toggle('hidden',!test);$('#summaryCard').classList.toggle('test-summary',test);$('#summaryCard').classList.remove('hidden');const cs=$('#coachSimSummary');if(run.coachPreview&&run.simAudit){const a=run.simAudit,def=planDef(run.coachPreviewSessionId,run.coachPreviewWeek);cs.className='coach-sim-summary'+(a.ok?'':' warn');cs.innerHTML=`<strong>Coach preview ${a.ok?'PASS':'CHECK'} · ${a.passed}/${a.all}</strong><span>${def?`Week ${run.coachPreviewWeek} · ${def.day}`:'Coached session'} · ${a.phaseCount}/${a.phaseTotal} phases reached · ${fmtTime(run.durationMs)} active.</span><span>TEST only: the planned coaching session remains incomplete and REAL analytics remain unchanged.</span>`;}else{cs.className='coach-sim-summary hidden';cs.innerHTML='';}const debrief=$('#postRunCoach');debrief.classList.toggle('hidden',test);if(!test){$('#postRunRpe').value=run.rpe||'';$('#postRunFeel').value=run.feel||'';$('#postRunCoachSaved').textContent=run.coachDecision?'Debrief saved. Your Coach recommendation has been updated.':'';renderDebriefNext(run);}else renderDebriefNext(null);switchTab('history');window.scrollTo({top:0,behavior:'smooth'});}
+$('#closeSummary').onclick=()=>$('#summaryCard').classList.add('hidden');
+$('#savePostRunCoach').onclick=()=>{const run=state.runs.find(r=>r.id===lastSummaryRunId);if(!run||isTestRun(run))return;const rpe=Number($('#postRunRpe').value)||null,feel=$('#postRunFeel').value||null;if(!rpe||!feel){$('#postRunCoachSaved').textContent='Choose both RPE and overall feel.';return;}run.rpe=rpe;run.feel=feel;run.coachDecision=coachDebriefDecision(rpe,feel);if(run.coachSessionId&&Number(run.coachWeek)===Number(state.week)){const session=state.sessions.find(s=>Number(s.id)===Number(run.coachSessionId));if(session){session.done=true;session.rpe=rpe;}}state.coach=state.coach||{};state.coach.lastDebrief={runId:run.id,dateKey:todayKey(),week:run.coachWeek||state.week,rpe,feel,...run.coachDecision,at:new Date().toISOString()};if(Number(state.coach.selectedSessionId)===Number(run.coachSessionId))state.coach.selectedSessionId=null;save();$('#postRunCoachSaved').textContent='Coach debrief saved. Your next recommendation has been updated.';renderDebriefNext(run);renderCoach();renderHistory();renderStats();};
+function renderHistory(){
+  const root=$('#historyList');root.innerHTML='';const realCount=realRuns().length,testCount=testRuns().length;$('#historyTotal').textContent=`${realCount} real · ${testCount} test`;
+  if(!state.runs.length){root.innerHTML='<p class="muted small">No saved runs yet. Your first completed run will appear here.</p>';return;}
+  for(const r of state.runs){const d=new Date(r.date),el=document.createElement('article');el.className='history-item clickable';el.dataset.id=r.id;el.innerHTML=`<div><strong>${d.toLocaleDateString()}</strong><span>${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>${isTestRun(r)?`<span class="test-tag">${r.coachPreview?'TEST COACH PREVIEW':'TEST'} · excluded from stats</span>`:''}</div><div class="history-stats"><span>${(r.distanceM/1000).toFixed(2)} km</span><span>${fmtTime(r.durationMs)}</span><span>${r.pace} /km</span></div><span class="chev">›</span>`;root.appendChild(el);}
+  document.querySelectorAll('.history-item').forEach(el=>el.onclick=()=>openRunDetail(Number(el.dataset.id)));
+  renderManageActivities();
+}
+function openRunDetail(id){
+  const r=state.runs.find(x=>x.id===id);if(!r)return;const d=new Date(r.date);$('#detailTitle').textContent=`${d.toLocaleDateString()} · ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;$('#detailDistance').textContent=`${(r.distanceM/1000).toFixed(2)} km`;$('#detailTime').textContent=fmtTime(r.durationMs);$('#detailPace').textContent=`${r.pace} /km`;$('#detailPaused').textContent=fmtTime(r.pausedMs||0);$('#detailAccuracy').textContent=r.avgAccuracy?`±${r.avgAccuracy} m`:'—';$('#detailMode').textContent=modeLabel(r);$('#deleteRun').dataset.id=r.id;$('#exportGpx').dataset.id=r.id;$('#toggleTest').dataset.id=r.id;$('#toggleTest').textContent=r.mode==='simulation'?'Simulation TEST':(isTestRun(r)?'Mark as REAL':'Mark as TEST');$('#toggleTest').disabled=r.mode==='simulation';
+  const root=$('#detailSplits');root.innerHTML='';if(r.splits?.length){r.splits.forEach(s=>{const row=document.createElement('div');row.className='split-row';row.innerHTML=`<span>Km ${s.km}</span><strong>${fmtTime(s.splitMs)}</strong><span>${fmtPace(1000,s.splitMs,1)} /km</span>`;root.appendChild(row);});}else root.innerHTML='<p class="muted small">No full-kilometer splits recorded.</p>';
+  $('#detailCard').classList.remove('hidden');setTimeout(()=>showDetailMap(r.points||[]),50);window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderManageActivities(){
+  const root=$('#manageList');if(!root)return;const realCount=realRuns().length,testCount=testRuns().length;$('#manageCounts').textContent=`${realCount} real · ${testCount} test`;root.innerHTML='';
+  if(!state.runs.length){root.innerHTML='<p class="muted small">No running activities stored.</p>';return;}
+  state.runs.forEach(r=>{const d=new Date(r.date),row=document.createElement('label');row.className='manage-row';row.innerHTML=`<input class="manage-check" data-id="${r.id}" type="checkbox"><div><strong>${d.toLocaleDateString()} · ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</strong><span>${(r.distanceM/1000).toFixed(2)} km · ${fmtTime(r.durationMs)} · ${r.pace} /km</span></div><span class="manage-badge ${isTestRun(r)?'test':'real'}">${isTestRun(r)?'TEST':'REAL'}</span>`;root.appendChild(row);});
+}
+function refreshDataViews(){save();renderHistory();renderStats();renderRoutes();renderShareRuns();}
+$('#toggleTest').onclick=()=>{const id=Number($('#toggleTest').dataset.id),r=state.runs.find(x=>x.id===id);if(!r)return;if(r.mode==='simulation'){alert('Simulation activities are always TEST and cannot be marked REAL.');return;}r.isTest=!isTestRun(r);refreshDataViews();openRunDetail(id);};
+$('#markSelectedTest').onclick=()=>{const ids=selectedRunIds();if(!ids.length){alert('Select one or more activities first.');return;}state.runs.forEach(r=>{if(ids.includes(r.id))r.isTest=true;});refreshDataViews();};
+$('#markSelectedReal').onclick=()=>{const ids=selectedRunIds();if(!ids.length){alert('Select one or more activities first.');return;}let blocked=0;state.runs.forEach(r=>{if(ids.includes(r.id)){if(r.mode==='simulation')blocked++;else r.isTest=false;}});refreshDataViews();if(blocked)alert(`${blocked} simulation activit${blocked===1?'y was':'ies were'} kept as TEST.`);};
+$('#deleteSelected').onclick=()=>{const ids=selectedRunIds();if(!ids.length){alert('Select one or more activities first.');return;}if(!confirm(`Delete ${ids.length} selected activit${ids.length===1?'y':'ies'}? This cannot be undone.`))return;state.runs=state.runs.filter(r=>!ids.includes(r.id));$('#detailCard').classList.add('hidden');$('#summaryCard').classList.add('hidden');refreshDataViews();};
+$('#resetRunningData').onclick=()=>{const n=state.runs.length;if(!n){alert('There is no running data to reset.');return;}if(!confirm(`Reset all ${n} running activit${n===1?'y':'ies'} and statistics? Coach sessions, RPE, weight and goal will be kept. Export a backup first if needed.`))return;state.runs=[];$('#detailCard').classList.add('hidden');$('#summaryCard').classList.add('hidden');refreshDataViews();alert('Running history and statistics were reset. Coach data was kept.');};
+$('#closeDetail').onclick=()=>$('#detailCard').classList.add('hidden');
+$('#deleteRun').onclick=()=>{const id=Number($('#deleteRun').dataset.id);if(!confirm('Delete this activity from RunStart? This cannot be undone.'))return;state.runs=state.runs.filter(r=>r.id!==id);$('#detailCard').classList.add('hidden');refreshDataViews();};
+$('#deleteTests').onclick=()=>{const n=testRuns().length;if(!n){alert('No test activities to delete.');return;}if(!confirm(`Delete all ${n} TEST simulation activit${n===1?'y':'ies'}? Real GPS runs will be kept.`))return;state.runs=state.runs.filter(r=>!isTestRun(r));$('#summaryCard').classList.add('hidden');$('#detailCard').classList.add('hidden');refreshDataViews();};
+function download(name,text,type='text/plain'){const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200);}
+function runToGpx(r){
+  const raw=(r.points||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+  if(raw.length<2)return'';
+  let lastT=new Date(r.date).getTime();
+  const pts=raw.map((p,i)=>{let t=Number(p.t);if(!Number.isFinite(t)||t<=lastT)t=lastT+(i?Math.max(1000,Math.round((r.durationMs||60000)/(raw.length-1))):0);lastT=t;return`<trkpt lat="${Number(p.lat).toFixed(7)}" lon="${Number(p.lon).toFixed(7)}"><time>${new Date(t).toISOString()}</time></trkpt>`;}).join('');
+  const label=isTestRun(r)?'TEST Run':'Run';
+  return`<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunStart V8" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd"><metadata><name>RunStart ${label}</name><time>${new Date(r.date).toISOString()}</time></metadata><trk><name>RunStart ${label}</name><type>running</type><trkseg>${pts}</trkseg></trk></gpx>`;
+}
+function exportRunGpx(id){const r=state.runs.find(x=>x.id===Number(id));if(!r)return;if(isTestRun(r)){if(!confirm('This activity is marked TEST. Export it anyway? Do not upload TEST data as a real Strava run.'))return;}if(!r.points||r.points.length<2){alert('This activity has no usable GPS route to export.');return;}download(`runstart-${new Date(r.date).toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`,runToGpx(r),'application/gpx+xml');}
+$('#exportGpx').onclick=()=>exportRunGpx($('#exportGpx').dataset.id);
+
+function buildDiagnosticGpx(){
+  const start=Date.now(),baseLat=37.7749,baseLon=-122.4194,points=[],total=84,durationMs=8*60*1000;
+  // ~1.05 km rectangular synthetic loop with monotonic timestamps.
+  const anchors=[{lat:baseLat,lon:baseLon},{lat:baseLat,lon:baseLon+0.0030},{lat:baseLat+0.0021,lon:baseLon+0.0030},{lat:baseLat+0.0021,lon:baseLon},{lat:baseLat,lon:baseLon}];
+  const segs=anchors.length-1,per=Math.floor(total/segs);
+  for(let s=0;s<segs;s++)for(let j=0;j<per;j++){const f=j/per,a=anchors[s],b=anchors[s+1];points.push({lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,t:start+(points.length)*(durationMs/(total-1)),ele:20});}
+  points.push({...anchors[anchors.length-1],t:start+durationMs,ele:20});
+  const trkpts=points.map(p=>`<trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><ele>${p.ele.toFixed(1)}</ele><time>${new Date(p.t).toISOString()}</time></trkpt>`).join('');
+  const created=new Date(start).toISOString();
+  const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunStart V8.1 TEST DIAGNOSTIC" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd"><metadata><name>RunStart TEST DIAGNOSTIC - NOT A REAL RUN</name><time>${created}</time></metadata><trk><name>RunStart TEST DIAGNOSTIC - DO NOT SAVE</name><type>running</type><trkseg>${trkpts}</trkseg></trk></gpx>`;
+  let dist=0;for(let i=1;i<points.length;i++)dist+=hav(points[i-1],points[i]);
+  return {xml,pointCount:points.length,distanceM:dist,durationMs};
+}
+function generateDiagnosticGpx(){
+  const beforeCount=state.runs.length;
+  const result=buildDiagnosticGpx();
+  try{
+    const parsed=new DOMParser().parseFromString(result.xml,'application/xml');
+    if(parsed.querySelector('parsererror'))throw new Error('XML parser rejected the generated file.');
+    const trkpts=parsed.getElementsByTagNameNS('http://www.topografix.com/GPX/1/1','trkpt');
+    if(trkpts.length<2)throw new Error('GPX does not contain enough track points.');
+    download(`runstart-TEST-DIAGNOSTIC-${new Date().toISOString().slice(0,10)}.gpx`,result.xml,'application/gpx+xml');
+    const unchanged=state.runs.length===beforeCount;
+    const el=$('#diagnosticStatus');
+    if(el){el.className='diagnostic-status ok';el.innerHTML=`<strong>GPX generated successfully.</strong><span>${result.pointCount} synthetic track points · RunStart activity count ${unchanged?'unchanged':'CHECK REQUIRED'} · Stats unchanged.</span>`;}
+  }catch(err){
+    const el=$('#diagnosticStatus');
+    if(el){el.className='diagnostic-status error';el.innerHTML=`<strong>Diagnostic failed.</strong><span>${String(err.message||err)}</span>`;}
+  }
+}
+const diagnosticBtn=$('#generateDiagnosticGpx');if(diagnosticBtn)diagnosticBtn.onclick=generateDiagnosticGpx;
+function openStravaUploadPage(){window.open('https://www.strava.com/upload/select','_blank','noopener,noreferrer');}
+const detailStravaBtn=$('#openStravaUpload');if(detailStravaBtn)detailStravaBtn.onclick=openStravaUploadPage;
+const mainStravaBtn=$('#openStravaUploadMain');if(mainStravaBtn)mainStravaBtn.onclick=openStravaUploadPage;
+function renderShareRuns(){const root=$('#shareRunList');if(!root)return;root.innerHTML='';const runs=realRuns().slice(0,12);if(!runs.length){root.innerHTML='<p class="muted small">No REAL GPS runs available yet. Complete a real GPS run first.</p>';return;}runs.forEach(r=>{const d=new Date(r.date),row=document.createElement('article');row.className='history-item';row.innerHTML=`<div><strong>${d.toLocaleDateString()}</strong><span>${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div><div class="history-stats"><span>${(r.distanceM/1000).toFixed(2)} km</span><span>${fmtTime(r.durationMs)}</span><span>${r.pace} /km</span></div><button class="secondary" data-export-share="${r.id}">Export GPX</button>`;root.appendChild(row);});root.querySelectorAll('[data-export-share]').forEach(b=>b.onclick=()=>exportRunGpx(b.dataset.exportShare));}
+
+
+
+function cumulativeTrack(points){const out=[0];let d=0;for(let i=1;i<points.length;i++){d+=hav(points[i-1],points[i]);out.push(d);}return out;}
+function bestEffortForRun(r,targetM){const pts=(r.points||[]).filter(p=>Number.isFinite(p.t));if(pts.length<3)return null;const cum=cumulativeTrack(pts);if(cum[cum.length-1]<targetM)return null;let best=null,j=0;for(let i=0;i<pts.length;i++){if(j<i)j=i;while(j<pts.length&&cum[j]-cum[i]<targetM)j++;if(j>=pts.length)break;const dt=pts[j].t-pts[i].t;if(dt>0&&(!best||dt<best.ms))best={ms:dt,run:r};}return best;}
+function allBestEffort(targetM){let best=null;for(const r of realRuns()){const x=bestEffortForRun(r,targetM);if(x&&(!best||x.ms<best.ms))best=x;}return best;}
+function renderPersonalRecords(){const root=$('#prGrid');if(!root)return;const b1=allBestEffort(1000),b5=allBestEffort(5000),longest=realRuns().reduce((a,r)=>!a||r.distanceM>a.distanceM?r:a,null),fast=realRuns().filter(r=>r.distanceM>=500).sort((a,b)=>paceMinutes(a.distanceM,a.durationMs)-paceMinutes(b.distanceM,b.durationMs))[0];root.innerHTML=[statCard('Best 1K',b1?fmtTime(b1.ms):'—'),statCard('Best 5K',b5?fmtTime(b5.ms):'—'),statCard('Longest REAL',longest?`${(longest.distanceM/1000).toFixed(2)} km`:'—'),statCard('Fastest avg pace',fast?`${fast.pace} /km`:'—')].join('');}
+
+let heatMap=null,heatLayers=[],routeReplayMap=null,routeReplayLine=null,routeReplayMarker=null,replayTimer=null,replayRun=null,replayIndex=0;
+function ensureHeatMap(){if(typeof L==='undefined'||!$('#heatMap'))return; if(!heatMap){heatMap=makeMap('heatMap');heatMap.setView([0,0],2);}setTimeout(()=>heatMap?.invalidateSize(),80);}
+function renderHeatMap(){ensureHeatMap();if(!heatMap)return;heatLayers.forEach(x=>heatMap.removeLayer(x));heatLayers=[];const runs=realRuns().filter(r=>(r.points||[]).length>1);$('#routeCount').textContent=`${runs.length} route${runs.length===1?'':'s'}`;let bounds=[];runs.forEach((r,idx)=>{const ll=r.points.map(p=>[p.lat,p.lon]);const line=L.polyline(ll,{weight:7,opacity:.16+Math.min(.42,idx*.025),color:'#60a5fa'}).addTo(heatMap);heatLayers.push(line);bounds.push(...ll);});if(bounds.length)heatMap.fitBounds(bounds,{padding:[25,25],maxZoom:15});else heatMap.setView([0,0],2);}
+function renderRouteLibrary(){const root=$('#routeLibrary');if(!root)return;root.innerHTML='';const runs=realRuns().filter(r=>(r.points||[]).length>1);if(!runs.length){root.innerHTML='<p class="muted small">No REAL GPS routes yet. Your first route will appear here.</p>';return;}runs.forEach(r=>{const d=new Date(r.date),el=document.createElement('article');el.className='history-item clickable';el.innerHTML=`<div><strong>${d.toLocaleDateString()}</strong><span>${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div><div class="history-stats"><span>${(r.distanceM/1000).toFixed(2)} km</span><span>${r.pace} /km</span><span>${r.points.length} pts</span></div><button class="secondary" data-route="${r.id}">View</button>`;root.appendChild(el);});root.querySelectorAll('[data-route]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRouteReplay(Number(b.dataset.route));});}
+function stopRouteReplay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;}$('#stopReplay')&&($('#stopReplay').disabled=true);$('#replayRoute')&&($('#replayRoute').disabled=false);}
+function openRouteReplay(id){stopRouteReplay();const r=state.runs.find(x=>x.id===id);if(!r)return;replayRun=r;replayIndex=0;$('#routeReplayTitle').textContent=`${new Date(r.date).toLocaleDateString()} · ${(r.distanceM/1000).toFixed(2)} km`;$('#routeReplayStats').innerHTML=`<div><span>Distance</span><strong>${(r.distanceM/1000).toFixed(2)} km</strong></div><div><span>Time</span><strong>${fmtTime(r.durationMs)}</strong></div><div><span>Avg pace</span><strong>${r.pace} /km</strong></div><div><span>Splits</span><strong>${(r.splits||[]).length}</strong></div>`;$('#routeReplayCard').classList.remove('hidden');if(routeReplayMap){routeReplayMap.remove();routeReplayMap=null;}routeReplayMap=makeMap('routeReplayMap');const ll=r.points.map(p=>[p.lat,p.lon]);routeReplayLine=L.polyline(ll,{weight:5,color:'#60a5fa'}).addTo(routeReplayMap);routeReplayMap.fitBounds(routeReplayLine.getBounds(),{padding:[25,25],maxZoom:17});routeReplayMarker=L.circleMarker(ll[0],{radius:7,color:'#fff',fillColor:'#22c55e',fillOpacity:1}).addTo(routeReplayMap);$('#replayProgress').textContent='0%';$('#replayBar').style.width='0%';setTimeout(()=>routeReplayMap.invalidateSize(),80);window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});}
+function playRoute(){if(!replayRun||replayTimer)return;const pts=replayRun.points||[];if(pts.length<2)return;$('#replayRoute').disabled=true;$('#stopReplay').disabled=false;replayIndex=0;replayTimer=setInterval(()=>{replayIndex++;if(replayIndex>=pts.length){stopRouteReplay();replayIndex=pts.length-1;}const p=pts[replayIndex],pct=Math.round((replayIndex/(pts.length-1))*100);routeReplayMarker?.setLatLng([p.lat,p.lon]);routeReplayMap?.panTo([p.lat,p.lon],{animate:true,duration:.15});$('#replayProgress').textContent=`${pct}%`;$('#replayBar').style.width=`${pct}%`;if(replayIndex>=pts.length-1)stopRouteReplay();},120);}
+function renderRoutes(){renderHeatMap();renderRouteLibrary();}
+
+function runsSince(days){const cut=Date.now()-days*86400000;return realRuns().filter(r=>new Date(r.date).getTime()>=cut);}
+function aggregate(runs){const distanceM=runs.reduce((a,r)=>a+(r.distanceM||0),0),durationMs=runs.reduce((a,r)=>a+(r.durationMs||0),0);return{count:runs.length,distanceM,durationMs,pace:fmtPace(distanceM,durationMs,20),longest:runs.reduce((m,r)=>Math.max(m,r.distanceM||0),0)};}
+function statCard(label,value){return`<div class="stat-card"><span>${label}</span><strong>${value}</strong></div>`;}
+function renderStats(){
+  const clean=realRuns(),tests=testRuns(),all=aggregate(clean),d7=aggregate(runsSince(7)),d30=aggregate(runsSince(30));$('#statsGrid').innerHTML=[statCard('Runs · 7 days',d7.count),statCard('Distance · 7 days',`${(d7.distanceM/1000).toFixed(2)} km`),statCard('Runs · 30 days',d30.count),statCard('Distance · 30 days',`${(d30.distanceM/1000).toFixed(2)} km`),statCard('All-time distance',`${(all.distanceM/1000).toFixed(2)} km`),statCard('All-time time',fmtTime(all.durationMs)),statCard('Overall avg pace',`${all.pace} /km`),statCard('Longest run',`${(all.longest/1000).toFixed(2)} km`),statCard('TEST activities excluded',tests.length)].join('');
+  const recent=clean.slice(0,8).reverse().map(r=>({...r,pm:paceMinutes(r.distanceM,r.durationMs)})).filter(r=>r.pm&&r.pm<60);const chart=$('#paceTrend');chart.innerHTML='';if(!recent.length){chart.innerHTML='<p class="muted small">No meaningful pace data yet.</p>';}else{const vals=recent.map(r=>r.pm),min=Math.min(...vals),max=Math.max(...vals),range=Math.max(.5,max-min);recent.forEach(r=>{const h=35+(max-r.pm)/range*110,wrap=document.createElement('div');wrap.className='pace-bar-wrap';wrap.innerHTML=`<b>${r.pace}</b><div class="pace-bar ${r.mode==='simulation'?'sim':''}" style="height:${h}px"></div><small>${new Date(r.date).toLocaleDateString([], {month:'short',day:'numeric'})}</small>`;chart.appendChild(wrap);});}
+  renderPersonalRecords();
+  const weeks=[];for(let i=5;i>=0;i--){const end=Date.now()-i*7*86400000,start=end-7*86400000,rs=clean.filter(r=>{const t=new Date(r.date).getTime();return t>=start&&t<end;}),a=aggregate(rs);weeks.push({label:`-${i}w`,km:a.distanceM/1000});}const maxKm=Math.max(.1,...weeks.map(w=>w.km));$('#weeklyChart').innerHTML=weeks.map(w=>`<div class="week-col"><b>${w.km.toFixed(1)}</b><div class="week-bar" style="height:${Math.max(4,w.km/maxKm*115)}px"></div><small>${w.label}</small></div>`).join('');
+}
+function switchTab(name){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.bottom-tab[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));$('#openMore')?.classList.toggle('active',name==='routes'||name==='share');document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));$(`#${name}Tab`).classList.add('active');$('#moreSheet')?.classList.add('hidden');if(name==='run'){renderCoachedRunCard();setTimeout(()=>ensureLiveMap(),50);}if(name==='coach')renderCoach();if(name==='stats')renderStats();if(name==='routes'){renderRoutes();setTimeout(()=>{heatMap?.invalidateSize();routeReplayMap?.invalidateSize();},80);}if(name==='share')renderShareRuns();window.scrollTo({top:0,behavior:'smooth'});}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+document.querySelectorAll('.bottom-tab[data-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+$('#openMore').onclick=()=>$('#moreSheet').classList.remove('hidden');
+$('#closeMore').onclick=()=>$('#moreSheet').classList.add('hidden');
+$('.more-backdrop').onclick=()=>$('#moreSheet').classList.add('hidden');
+document.querySelectorAll('[data-more-target]').forEach(b=>b.onclick=()=>switchTab(b.dataset.moreTarget));
+
+const closeRouteBtn=$('#closeRouteReplay');if(closeRouteBtn)closeRouteBtn.onclick=()=>{stopRouteReplay();$('#routeReplayCard').classList.add('hidden');};
+const replayBtn=$('#replayRoute');if(replayBtn)replayBtn.onclick=playRoute;
+const stopReplayBtn=$('#stopReplay');if(stopReplayBtn)stopReplayBtn.onclick=stopRouteReplay;
+
+$('#startRun').onclick=startRun;$('#pauseRun').onclick=pauseRun;$('#finishRun').onclick=finishRun;
+$('#exportData').onclick=()=>download(`runstart-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(state,null,2),'application/json');
+window.addEventListener('beforeunload',()=>{if(tracker.active)stopSource();});
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));
+renderCoach();renderHistory();renderStats();renderRoutes();renderShareRuns();updateMetrics();renderLiveSplits();setMode('real');renderCoachedRunCard();
+

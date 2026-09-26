@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RunStart" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="preconnect" href="https://tile.openstreetmap.org" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="./style.css" />
+  <title>RunStart 1.0 Release Candidate</title>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">1.0 RC • personal coaching + guided GPS runs + adaptive progress</p></div>
+      <div class="badge">Week <span id="week">1</span></div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="coach">Coach</button>
+      <button class="tab" data-tab="run">Run</button>
+      <button class="tab" data-tab="history">History</button>
+      <button class="tab" data-tab="stats">Analytics</button>
+      <button class="tab" data-tab="routes">Routes</button>
+      <button class="tab" data-tab="share">Share</button>
+    </nav>
+
+    <section id="coachTab" class="tab-panel active">
+      <section class="card personal-coach-card">
+        <div class="section-title compact"><div><p class="eyebrow">YOUR PERSONAL COACH</p><h2 class="coach-today-heading">Today</h2></div><span id="coachTodayStatus" class="mode-badge readiness building">CHECK-IN</span></div>
+        <h3 id="coachTodayTitle">Tell me how today feels</h3>
+        <p id="coachTodayText" class="coach-today-text">A short check-in helps RunStart choose between your planned session, an easier day, or recovery.</p>
+        <div class="checkin-grid" aria-label="Daily training check-in">
+          <div class="checkin-group"><span>Energy</span><div class="choice-row"><button type="button" class="choice" data-checkin="energy" data-value="low">Low</button><button type="button" class="choice" data-checkin="energy" data-value="okay">Okay</button><button type="button" class="choice" data-checkin="energy" data-value="good">Good</button></div></div>
+          <div class="checkin-group"><span>Legs</span><div class="choice-row"><button type="button" class="choice" data-checkin="legs" data-value="sore">Sore</button><button type="button" class="choice" data-checkin="legs" data-value="okay">Okay</button><button type="button" class="choice" data-checkin="legs" data-value="fresh">Fresh</button></div></div>
+          <div class="checkin-group"><span>Sleep</span><div class="choice-row"><button type="button" class="choice" data-checkin="sleep" data-value="poor">Poor</button><button type="button" class="choice" data-checkin="sleep" data-value="okay">Okay</button><button type="button" class="choice" data-checkin="sleep" data-value="good">Good</button></div></div>
+        </div>
+        <div id="coachTodayPlan" class="today-plan">
+          <span>Next step</span><strong>Complete the check-in</strong><small>Your planned workout will appear here.</small>
+        </div>
+        <div class="coach-action-row"><button id="startCoachedSession" type="button" class="primary coach-start" disabled>Start coached session</button><button id="advanceWeek" type="button" class="secondary hidden">Advance week</button></div>
+        <p class="muted small coach-scope">RunStart adapts training using your own completed sessions, RPE, real-run history and daily check-in. It does not diagnose injuries or medical conditions.</p>
+      </section>
+
+      <section class="hero card"><div><p class="muted">Current goal</p><h2 id="goal"></h2><p id="coachText"></p></div><div class="score"><span id="score">0</span><small>% done</small></div></section>
+
+      <section class="card intelligence-card">
+        <div class="section-title compact"><div><p class="eyebrow">TRAINING INTELLIGENCE</p><h3>Adaptive guidance</h3></div><span id="readinessBadge" class="mode-badge">BUILDING</span></div>
+        <div id="coachInsight" class="insight-copy"></div>
+        <div id="coachMetrics" class="coach-metrics"></div>
+        <p class="muted small">Guidance uses only your local RunStart history, completed sessions, RPE and recent pace trends. It is coaching support, not medical advice.</p>
+      </section>
+      <section><div class="section-title"><h3>This week</h3><span class="muted">3 sessions</span></div><div id="sessions" class="stack"></div></section>
+      <section class="card"><div class="section-title compact"><h3>Weight tracker</h3><span id="bmi" class="muted"></span></div><form id="weightForm" class="row"><input id="weightInput" inputmode="decimal" type="number" min="30" max="300" step="0.1" /><button type="submit">Save</button></form><p class="muted small">Saved only on this device. Training consistency matters more than daily weight changes.</p></section>
+    </section>
+
+    <section id="runTab" class="tab-panel">
+      <section class="card mode-card">
+        <div class="section-title compact"><div><p class="eyebrow">TRACKING MODE</p><h3>Choose how to test or run</h3></div><span id="modeBadge" class="mode-badge">REAL GPS</span></div>
+        <div class="mode-switch"><button id="realMode" class="mode-btn active">Real GPS</button><button id="simMode" class="mode-btn">Simulation</button></div>
+        <p id="modeHelp" class="muted small">Uses iPhone GPS. Keep RunStart open for the most reliable tracking.</p>
+      </section>
+
+      <section id="simulationLab" class="card sim-lab hidden">
+        <div class="section-title compact"><div><p class="eyebrow">SIMULATION LAB</p><h3>Full-pipeline TEST run</h3></div><span class="mode-badge sim">TEST ONLY</span></div>
+        <p class="muted small">Runs a deterministic synthetic route through the same tracking, splits, pause/resume, History, map and analytics pipeline. Simulated time is now independent of browser timer drift, so target pace and active time stay exact. Every result stays TEST and is excluded from REAL statistics.</p>
+        <div class="sim-lab-grid">
+          <label><span>Scenario</span><select id="simScenario"><option value="easy1k">Easy 1K · 7:30/km</option><option value="steady5k">Steady 5K · 6:30/km</option><option value="interval3k">3K intervals · variable pace</option><option value="pause2k">2K pause/resume audit</option><option value="coached">Coached session · full plan</option></select></label>
+          <label><span>Test speed</span><select id="simSpeed"><option value="20">20×</option><option value="40" selected>40×</option><option value="80">80×</option></select></label>
+        </div>
+        <label class="sim-check"><input id="simAutoFinish" type="checkbox" checked><span>Auto-finish when simulation target is reached</span></label>
+        <div class="sim-targets"><div><span>Target</span><strong id="simTarget">1.00 km</strong></div><div><span>Expected active time</span><strong id="simExpected">07:30</strong></div><div><span>Purpose</span><strong id="simPurpose">Splits + route + save</strong></div></div>
+        <div id="simAudit" class="diagnostic-status"><strong>Ready for simulation.</strong><span>Select a scenario, then use Start Run below.</span></div>
+      </section>
+
+      <section id="coachCueCard" class="card coach-cue-card hidden">
+        <div class="section-title compact"><div><p class="eyebrow">COACHED SESSION</p><h3 id="coachSessionLabel">Session</h3></div><span id="coachPhaseBadge" class="mode-badge">READY</span></div>
+        <div class="cue-main"><strong id="coachCue">Warm up comfortably</strong><span id="coachNextCue">Next cue will appear here.</span></div>
+        <div class="coach-live-meta"><span id="coachPhaseMeta">Ready to begin</span><strong id="coachCountdown">--:--</strong></div>
+        <div class="cue-progress"><i id="coachPhaseProgress"></i></div>
+        <div class="coach-overall"><span>Session progress</span><span id="coachSessionProgressText">00:00 / 00:00</span></div>
+        <div class="cue-progress overall"><i id="coachOverallProgress"></i></div>
+        <div class="live-coach-panel visual-coach-panel">
+          <div class="live-coach-head"><div><p class="eyebrow">VISUAL COACH</p><strong>Follow the phase card and countdown</strong><small>Current phase, time remaining, next phase and session progress stay visible throughout the workout.</small></div></div>
+          <div class="visual-cue-chips"><span>Current phase</span><span>Time remaining</span><span>Next phase</span><span>Session progress</span></div>
+        </div>
+        <div class="coach-cue-actions"><button id="testCoachedSession" type="button" class="coach-test-btn">Simulate full session (TEST)</button><button id="cancelCoachedSession" type="button" class="secondary">Use free run instead</button></div>
+      </section>
+
+      <section class="card tracker-card">
+        <div class="tracker-head"><div><p class="eyebrow">LIVE RUN</p><h2 id="trackerStatus">Ready</h2></div><div class="gps-pill" id="gpsStatus">GPS idle</div></div>
+        <div class="metrics-grid">
+          <div class="metric"><strong id="runTime">00:00</strong><span>active time</span></div>
+          <div class="metric"><strong id="runDistance">0.00</strong><span>km</span></div>
+          <div class="metric"><strong id="runPace">--:--</strong><span>current min/km</span></div>
+          <div class="metric"><strong id="avgPace">--:--</strong><span>average min/km</span></div>
+          <div class="metric"><strong id="runAccuracy">—</strong><span>GPS ±m</span></div>
+          <div class="metric"><strong id="pauseTime">00:00</strong><span>paused</span></div>
+        </div>
+        <div class="run-actions"><button id="startRun" class="primary">Start Run</button><button id="pauseRun" class="secondary" disabled>Pause</button><button id="finishRun" class="danger" disabled>Finish</button></div>
+        <p class="muted small">Active pace excludes paused time. Weak GPS and implausible jumps are filtered before distance is added.</p>
+      </section>
+
+      <section class="card"><div class="section-title compact"><h3>Live splits</h3><span class="muted">per km</span></div><div id="liveSplits" class="split-list"></div></section>
+      <section class="card map-card"><div class="section-title compact"><h3>Live route map</h3><span id="pointCount" class="muted">0 points</span></div><div id="liveMap" class="map"></div><p id="mapHint" class="muted small map-hint">Map appears when the first valid location point is recorded.</p></section>
+    </section>
+
+    <section id="historyTab" class="tab-panel">
+      <section id="summaryCard" class="card summary hidden">
+        <div class="section-title compact"><h3 id="summaryTitle">Run saved</h3><button id="closeSummary" class="icon-btn">×</button></div><div id="summaryNotice" class="test-notice hidden"><strong>TEST DATA</strong><span>This simulated activity is excluded from all real-run statistics and trends.</span></div>
+        <div class="summary-grid"><div><span>Distance</span><strong id="summaryDistance">0.00 km</strong></div><div><span>Active time</span><strong id="summaryTime">00:00</strong></div><div><span>Avg pace</span><strong id="summaryPace">--:-- /km</strong></div><div><span>Paused</span><strong id="summaryPaused">00:00</strong></div><div><span>Splits</span><strong id="summarySplits">0</strong></div><div><span>Mode</span><strong id="summaryMode">GPS</strong></div></div>
+        <div id="coachSimSummary" class="coach-sim-summary hidden" aria-live="polite"></div>
+        <div id="postRunCoach" class="post-run-coach hidden">
+          <div><p class="eyebrow">COACH DEBRIEF</p><h3>How did that feel?</h3><p class="muted small">Your answer helps shape the next recommendation.</p></div>
+          <div class="post-run-grid"><label>RPE<select id="postRunRpe"><option value="">Select</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label>Overall<select id="postRunFeel"><option value="">Select</option><option value="easy">Easier than expected</option><option value="right">About right</option><option value="hard">Harder than expected</option></select></label></div>
+          <button id="savePostRunCoach" type="button" class="primary full">Save coach debrief</button>
+          <div id="postRunCoachSaved" class="muted small" aria-live="polite"></div>
+          <div id="postRunCoachNext" class="debrief-next hidden" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section id="detailCard" class="card hidden">
+        <div class="section-title compact"><div><p class="eyebrow">RUN DETAIL</p><h3 id="detailTitle"></h3></div><button id="closeDetail" class="icon-btn">×</button></div>
+        <div class="summary-grid"><div><span>Distance</span><strong id="detailDistance"></strong></div><div><span>Active time</span><strong id="detailTime"></strong></div><div><span>Avg pace</span><strong id="detailPace"></strong></div><div><span>Paused</span><strong id="detailPaused"></strong></div><div><span>GPS avg</span><strong id="detailAccuracy"></strong></div><div><span>Mode</span><strong id="detailMode"></strong></div></div>
+        <h4>Splits</h4><div id="detailSplits" class="split-list"></div>
+        <h4>Route map</h4><div id="detailMap" class="map detail-map"></div>
+        <div class="button-row three"><button id="exportGpx" class="secondary">Export GPX</button><button id="openStravaUpload" class="secondary">Open Strava Upload</button><button id="toggleTest" class="secondary">Mark as TEST</button></div><div class="button-row"><button id="deleteRun" class="danger">Delete run</button></div><p class="muted small">REAL activities can be exported as GPX and uploaded manually to Strava at no API cost. TEST activities should not be uploaded as real runs.</p>
+      </section>
+
+      <section class="card"><div class="section-title compact"><h3>Running history</h3><span id="historyTotal" class="muted">0 real · 0 test</span></div><div id="historyList" class="history-list"></div></section>
+      <section class="card"><h3>Data & privacy</h3><p class="muted small">Real GPS runs and TEST activities are stored locally in this browser/PWA. TEST activities are never counted in Stats. Export a backup before clearing Safari website data or resetting run history.</p><div class="button-row"><button id="exportData" class="secondary">Export my RunStart data</button><button id="deleteTests" class="danger">Delete all TEST activities</button></div></section>
+      <section class="card data-manager"><div class="section-title compact"><h3>Data management</h3><span id="manageCounts" class="muted">0 real · 0 test</span></div><p class="muted small">Use this to clean old GPS test records before sharing or exporting. Select activities, then mark them TEST or delete them. Reset running data removes run history/statistics only; Coach sessions, RPE, weight and goal are kept.</p><div id="manageList" class="manage-list"></div><div class="button-row"><button id="markSelectedTest" class="secondary">Mark selected TEST</button><button id="markSelectedReal" class="secondary">Mark selected REAL</button></div><div class="button-row"><button id="deleteSelected" class="danger">Delete selected</button><button id="resetRunningData" class="danger">Reset running data</button></div></section>
+    </section>
+
+    <section id="statsTab" class="tab-panel">
+      <section class="card"><div class="section-title compact"><div><p class="eyebrow">ADVANCED ANALYTICS</p><h3>Running statistics</h3></div><span class="muted">REAL runs only</span></div><div id="statsGrid" class="stats-grid"></div></section>
+      <section class="card"><div class="section-title compact"><h3>Best efforts & records</h3><span class="muted">route-derived</span></div><div id="prGrid" class="stats-grid"></div><p class="muted small">Best efforts are calculated from stored GPS track points. Short or sparse tracks may not produce a record.</p></section>
+      <section class="card"><div class="section-title compact"><h3>Recent pace trend</h3><span class="muted">last 8 runs</span></div><div id="paceTrend" class="pace-chart"></div><p class="muted small">Only real GPS runs are included here. TEST simulation activities are automatically excluded from trends and all statistics.</p></section>
+      <section class="card"><div class="section-title compact"><h3>Weekly consistency</h3><span class="muted">last 6 weeks</span></div><div id="weeklyChart" class="weekly-chart"></div></section>
+    </section>
+
+    <section id="routesTab" class="tab-panel">
+      <section class="card">
+        <div class="section-title compact"><div><p class="eyebrow">ROUTE INTELLIGENCE</p><h3>Personal route heatmap</h3></div><span id="routeCount" class="muted">0 routes</span></div>
+        <div id="heatMap" class="map route-map"></div>
+        <p class="muted small">All REAL GPS routes are overlaid locally. Darker overlap means you have run that corridor more often. Map tiles require internet access.</p>
+      </section>
+      <section class="card">
+        <div class="section-title compact"><h3>Route library</h3><span class="muted">tap to inspect</span></div>
+        <div id="routeLibrary" class="history-list"></div>
+      </section>
+      <section id="routeReplayCard" class="card hidden">
+        <div class="section-title compact"><div><p class="eyebrow">ROUTE REPLAY</p><h3 id="routeReplayTitle">Selected route</h3></div><button id="closeRouteReplay" class="icon-btn">×</button></div>
+        <div id="routeReplayStats" class="summary-grid"></div>
+        <div id="routeReplayMap" class="map route-map"></div>
+        <div class="replay-controls"><button id="replayRoute" class="primary">Replay route</button><button id="stopReplay" class="secondary" disabled>Stop</button></div>
+        <div class="replay-progress"><span id="replayProgress">0%</span><div><i id="replayBar"></i></div></div>
+      </section>
+    </section>
+
+    <section id="shareTab" class="tab-panel">
+      <section class="card">
+        <div class="section-title compact"><div><p class="eyebrow">FREE SHARING</p><h3>Export REAL runs</h3></div><span class="mode-badge">No paid API</span></div>
+        <p class="muted small">RunStart does not require a paid Strava API. Export a REAL GPS activity as GPX, then upload that file manually to Strava or keep it as your own backup.</p>
+        <div id="shareRunList" class="history-list"></div>
+      </section>
+      <section class="card diagnostic-card">
+        <div class="section-title compact"><div><p class="eyebrow">GPX DIAGNOSTIC</p><h3>Strava-compatible GPX diagnostic</h3></div><span class="manage-badge test">TEST ONLY</span></div>
+        <p class="muted small">Generate a clearly labeled ~1 km synthetic GPX with realistic timestamps to verify route, distance and duration parsing. This does <strong>not</strong> create a RunStart activity, does not change Stats, and must never be treated as a real run.</p>
+        <div class="button-row"><button id="generateDiagnosticGpx" class="secondary">Generate TEST GPX</button></div>
+        <div id="diagnosticStatus" class="diagnostic-status" aria-live="polite">No diagnostic file generated yet.</div>
+        <p class="muted small">Optional parser check: select the TEST GPX on Strava's upload page only to confirm that the file is recognized, then cancel before saving the activity.</p>
+      </section>
+
+      <section class="card">
+        <h3>How to send a run to Strava</h3>
+        <ol class="share-steps">
+          <li>Choose a REAL run and tap <strong>Export GPX</strong>.</li>
+          <li>Open Strava Upload in Safari/browser.</li>
+          <li>Select the GPX file exported by RunStart and complete the Strava upload.</li>
+        </ol>
+        <div class="button-row"><button id="openStravaUploadMain" class="secondary">Open Strava Upload</button></div>
+        <p class="muted small">RunStart never sends TEST/simulation data automatically. Manual upload keeps you in control and avoids paid API requirements.</p>
+      </section>
+    </section>
+    <section class="card install-card"><h3>RunStart 1.0 RC</h3><p>This release candidate combines daily readiness check-in, adaptive personal coaching, guided run phases, iPhone-first visual cues, GPS tracking, pause/resume, splits, post-run RPE/feel debrief, week-by-week progression, REAL-only analytics, route intelligence, TEST isolation and free GPX export.</p></section>
+    <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
+  </main>
+
+  <nav class="bottom-nav" aria-label="RunStart mobile navigation">
+    <button type="button" class="bottom-tab active" data-tab="coach"><span>⌂</span><small>Coach</small></button>
+    <button type="button" class="bottom-tab bottom-run" data-tab="run"><span>▶</span><small>Run</small></button>
+    <button type="button" class="bottom-tab" data-tab="history"><span>≡</span><small>History</small></button>
+    <button type="button" class="bottom-tab" data-tab="stats"><span>↗</span><small>Progress</small></button>
+    <button type="button" id="openMore" class="bottom-tab"><span>•••</span><small>More</small></button>
+  </nav>
+  <div id="moreSheet" class="more-sheet hidden" role="dialog" aria-modal="true" aria-label="More RunStart sections">
+    <button type="button" class="more-backdrop" aria-label="Close menu"></button>
+    <div class="more-panel"><div class="more-handle"></div><h3>More</h3><button type="button" data-more-target="routes">Routes & heatmap</button><button type="button" data-more-target="share">Share & GPX</button><button type="button" id="closeMore" class="secondary">Close</button></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
