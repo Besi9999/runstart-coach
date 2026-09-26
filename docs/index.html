@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart V8.1</title>
+  <title>RunStart V8.2</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8.1 • Simulation Lab + adaptive coaching + advanced analytics</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8.2 • deterministic Simulation Lab + adaptive coaching + advanced analytics</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -53,7 +53,7 @@
 
       <section id="simulationLab" class="card sim-lab hidden">
         <div class="section-title compact"><div><p class="eyebrow">SIMULATION LAB</p><h3>Full-pipeline TEST run</h3></div><span class="mode-badge sim">TEST ONLY</span></div>
-        <p class="muted small">Runs a deterministic synthetic route through the same tracking, splits, pause/resume, History, map and analytics pipeline. Every result stays TEST and is excluded from REAL statistics.</p>
+        <p class="muted small">Runs a deterministic synthetic route through the same tracking, splits, pause/resume, History, map and analytics pipeline. Simulated time is now independent of browser timer drift, so target pace and active time stay exact. Every result stays TEST and is excluded from REAL statistics.</p>
         <div class="sim-lab-grid">
           <label><span>Scenario</span><select id="simScenario"><option value="easy1k">Easy 1K · 7:30/km</option><option value="steady5k">Steady 5K · 6:30/km</option><option value="interval3k">3K intervals · variable pace</option><option value="pause2k">2K pause/resume audit</option></select></label>
           <label><span>Test speed</span><select id="simSpeed"><option value="20">20×</option><option value="40" selected>40×</option><option value="80">80×</option></select></label>
@@ -151,7 +151,7 @@
         <p class="muted small">RunStart never sends TEST/simulation data automatically. Manual upload keeps you in control and avoids paid API requirements.</p>
       </section>
     </section>
-    <section class="card install-card"><h3>iPhone app</h3><p>V5.2 keeps RunStart independent and free: track runs locally, export REAL activities as GPX, and use the TEST GPX diagnostic without creating fake REAL activity data.</p></section>
+    <section class="card install-card"><h3>iPhone app</h3><p>V8.2 keeps RunStart independent and free: deterministic TEST simulation, advanced local analytics, route intelligence, and Strava-compatible GPX export for REAL activities.</p></section>
     <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
