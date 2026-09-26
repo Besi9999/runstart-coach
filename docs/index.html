@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart Coach V5.1</title>
+  <title>RunStart Coach V5.2</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V5.1 • free GPX export + manual Strava upload</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V5.2 • free GPX export + GPX diagnostic test</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -93,6 +93,14 @@
         <p class="muted small">RunStart does not require a paid Strava API. Export a REAL GPS activity as GPX, then upload that file manually to Strava or keep it as your own backup.</p>
         <div id="shareRunList" class="history-list"></div>
       </section>
+      <section class="card diagnostic-card">
+        <div class="section-title compact"><div><p class="eyebrow">GPX DIAGNOSTIC</p><h3>Test GPX export without a real run</h3></div><span class="manage-badge test">TEST ONLY</span></div>
+        <p class="muted small">Generate a clearly labeled synthetic GPX file to verify that RunStart can create a readable GPX. This does <strong>not</strong> create a RunStart activity, does not change Stats, and must never be treated as a real run.</p>
+        <div class="button-row"><button id="generateDiagnosticGpx" class="secondary">Generate TEST GPX</button></div>
+        <div id="diagnosticStatus" class="diagnostic-status" aria-live="polite">No diagnostic file generated yet.</div>
+        <p class="muted small">Optional parser check: select the TEST GPX on Strava's upload page only to confirm that the file is recognized, then cancel before saving the activity.</p>
+      </section>
+
       <section class="card">
         <h3>How to send a run to Strava</h3>
         <ol class="share-steps">
@@ -104,7 +112,7 @@
         <p class="muted small">RunStart never sends TEST/simulation data automatically. Manual upload keeps you in control and avoids paid API requirements.</p>
       </section>
     </section>
-    <section class="card install-card"><h3>iPhone app</h3><p>V5.1 keeps RunStart independent and free: track runs locally, export REAL activities as GPX, and upload to Strava manually when you choose.</p></section>
+    <section class="card install-card"><h3>iPhone app</h3><p>V5.2 keeps RunStart independent and free: track runs locally, export REAL activities as GPX, and use the TEST GPX diagnostic without creating fake REAL activity data.</p></section>
     <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

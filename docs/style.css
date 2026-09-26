@@ -11,3 +11,10 @@
 #shareRunList .history-item{align-items:center;gap:.75rem}
 #shareRunList .history-item button{min-width:104px}
 @media(max-width:560px){#shareRunList .history-item{grid-template-columns:1fr auto}#shareRunList .history-stats{grid-column:1 / -1}}
+
+/* V5.2 GPX diagnostic */
+.diagnostic-card{border-color:#334155}
+.diagnostic-status{margin-top:12px;padding:12px 14px;border:1px solid #334155;border-radius:12px;background:#0f172a;color:#94a3b8;display:flex;flex-direction:column;gap:4px}
+.diagnostic-status.ok{border-color:#166534;background:#052e16;color:#bbf7d0}
+.diagnostic-status.error{border-color:#991b1b;background:#450a0a;color:#fecaca}
+.diagnostic-status strong{color:inherit}

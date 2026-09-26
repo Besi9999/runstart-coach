@@ -130,9 +130,45 @@ $('#closeDetail').onclick=()=>$('#detailCard').classList.add('hidden');
 $('#deleteRun').onclick=()=>{const id=Number($('#deleteRun').dataset.id);if(!confirm('Delete this activity from RunStart? This cannot be undone.'))return;state.runs=state.runs.filter(r=>r.id!==id);$('#detailCard').classList.add('hidden');refreshDataViews();};
 $('#deleteTests').onclick=()=>{const n=testRuns().length;if(!n){alert('No test activities to delete.');return;}if(!confirm(`Delete all ${n} TEST simulation activit${n===1?'y':'ies'}? Real GPS runs will be kept.`))return;state.runs=state.runs.filter(r=>!isTestRun(r));$('#summaryCard').classList.add('hidden');$('#detailCard').classList.add('hidden');refreshDataViews();};
 function download(name,text,type='text/plain'){const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200);}
-function runToGpx(r){const pts=(r.points||[]).map(p=>`<trkpt lat="${p.lat}" lon="${p.lon}"><time>${new Date(p.t||r.date).toISOString()}</time></trkpt>`).join('');const label=isTestRun(r)?'TEST Simulation':'Run';return`<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="RunStart V5.1" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>RunStart ${label} ${new Date(r.date).toISOString()}</name></metadata><trk><name>RunStart ${label}</name><trkseg>${pts}</trkseg></trk></gpx>`;}
+function runToGpx(r){const pts=(r.points||[]).map(p=>`<trkpt lat="${p.lat}" lon="${p.lon}"><time>${new Date(p.t||r.date).toISOString()}</time></trkpt>`).join('');const label=isTestRun(r)?'TEST Simulation':'Run';return`<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="RunStart V5.2" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>RunStart ${label} ${new Date(r.date).toISOString()}</name></metadata><trk><name>RunStart ${label}</name><trkseg>${pts}</trkseg></trk></gpx>`;}
 function exportRunGpx(id){const r=state.runs.find(x=>x.id===Number(id));if(!r)return;if(isTestRun(r)){if(!confirm('This activity is marked TEST. Export it anyway? Do not upload TEST data as a real Strava run.'))return;}if(!r.points||r.points.length<2){alert('This activity has no usable GPS route to export.');return;}download(`runstart-${new Date(r.date).toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`,runToGpx(r),'application/gpx+xml');}
 $('#exportGpx').onclick=()=>exportRunGpx($('#exportGpx').dataset.id);
+
+function buildDiagnosticGpx(){
+  const start=Date.now(),baseLat=-6.2000,baseLon=106.8167,points=[];
+  for(let i=0;i<28;i++){
+    const angle=(i/27)*Math.PI*1.35;
+    const lat=baseLat+0.00018*Math.sin(angle);
+    const lon=baseLon+0.00022*(i/27)+0.00008*Math.cos(angle);
+    points.push({lat,lon,ele:12+Math.sin(angle)*1.5,t:start+i*7000});
+  }
+  const trkpts=points.map(p=>`<trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><ele>${p.ele.toFixed(1)}</ele><time>${new Date(p.t).toISOString()}</time></trkpt>`).join('');
+  const created=new Date(start).toISOString();
+  const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunStart V5.2 TEST DIAGNOSTIC" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata><name>RunStart TEST DIAGNOSTIC - NOT A REAL RUN</name><time>${created}</time></metadata>
+  <trk><name>RunStart TEST DIAGNOSTIC - DO NOT SAVE AS REAL ACTIVITY</name><type>running</type><trkseg>${trkpts}</trkseg></trk>
+</gpx>`;
+  return {xml,pointCount:points.length};
+}
+function generateDiagnosticGpx(){
+  const beforeCount=state.runs.length;
+  const result=buildDiagnosticGpx();
+  try{
+    const parsed=new DOMParser().parseFromString(result.xml,'application/xml');
+    if(parsed.querySelector('parsererror'))throw new Error('XML parser rejected the generated file.');
+    const trkpts=parsed.getElementsByTagNameNS('http://www.topografix.com/GPX/1/1','trkpt');
+    if(trkpts.length<2)throw new Error('GPX does not contain enough track points.');
+    download(`runstart-TEST-DIAGNOSTIC-${new Date().toISOString().slice(0,10)}.gpx`,result.xml,'application/gpx+xml');
+    const unchanged=state.runs.length===beforeCount;
+    const el=$('#diagnosticStatus');
+    if(el){el.className='diagnostic-status ok';el.innerHTML=`<strong>GPX generated successfully.</strong><span>${result.pointCount} synthetic track points · RunStart activity count ${unchanged?'unchanged':'CHECK REQUIRED'} · Stats unchanged.</span>`;}
+  }catch(err){
+    const el=$('#diagnosticStatus');
+    if(el){el.className='diagnostic-status error';el.innerHTML=`<strong>Diagnostic failed.</strong><span>${String(err.message||err)}</span>`;}
+  }
+}
+const diagnosticBtn=$('#generateDiagnosticGpx');if(diagnosticBtn)diagnosticBtn.onclick=generateDiagnosticGpx;
 function openStravaUploadPage(){window.open('https://www.strava.com/upload/select','_blank','noopener,noreferrer');}
 const detailStravaBtn=$('#openStravaUpload');if(detailStravaBtn)detailStravaBtn.onclick=openStravaUploadPage;
 const mainStravaBtn=$('#openStravaUploadMain');if(mainStravaBtn)mainStravaBtn.onclick=openStravaUploadPage;
