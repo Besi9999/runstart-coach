@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RunStart" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="./style.css" />
+  <title>RunStart Coach</title>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">BEGINNER RUNNING COACH</p>
+        <h1>RunStart</h1>
+      </div>
+      <div class="badge">Week <span id="week">1</span></div>
+    </header>
+
+    <section class="hero card">
+      <div>
+        <p class="muted">Current goal</p>
+        <h2 id="goal">Build consistency and complete an easy 5K</h2>
+        <p id="coachText">Keep the effort easy enough to speak in short sentences.</p>
+      </div>
+      <div class="score"><span id="score">0</span><small>% done</small></div>
+    </section>
+
+    <section>
+      <div class="section-title"><h3>This week</h3><span class="muted">3 sessions</span></div>
+      <div id="sessions" class="stack"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title"><h3>Weight tracker</h3><span id="bmi" class="muted"></span></div>
+      <form id="weightForm" class="row">
+        <input id="weightInput" inputmode="decimal" type="number" min="30" max="300" step="0.1" placeholder="Weight (kg)" />
+        <button type="submit">Save</button>
+      </form>
+      <p class="muted small">Saved only on this device. Training consistency matters more than daily weight changes.</p>
+    </section>
+
+    <section class="card install-card">
+      <h3>Install on iPhone</h3>
+      <p>Open this page in <strong>Safari</strong>, tap <strong>Share</strong>, then choose <strong>Add to Home Screen</strong>.</p>
+      <p class="muted small">Your completion status, RPE, and weight are stored locally on your device.</p>
+    </section>
+
+    <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
