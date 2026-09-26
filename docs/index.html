@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart V8.4 Personal Coach</title>
+  <title>RunStart V8.5 Coached Simulation</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8.4 • iPhone-first personal coaching + guided runs + proven V8.3 tracking engine</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8.5 • personal coaching + full coached-session simulation + guided runs</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -71,10 +71,10 @@
         <div class="section-title compact"><div><p class="eyebrow">SIMULATION LAB</p><h3>Full-pipeline TEST run</h3></div><span class="mode-badge sim">TEST ONLY</span></div>
         <p class="muted small">Runs a deterministic synthetic route through the same tracking, splits, pause/resume, History, map and analytics pipeline. Simulated time is now independent of browser timer drift, so target pace and active time stay exact. Every result stays TEST and is excluded from REAL statistics.</p>
         <div class="sim-lab-grid">
-          <label><span>Scenario</span><select id="simScenario"><option value="easy1k">Easy 1K · 7:30/km</option><option value="steady5k">Steady 5K · 6:30/km</option><option value="interval3k">3K intervals · variable pace</option><option value="pause2k">2K pause/resume audit</option></select></label>
+          <label><span>Scenario</span><select id="simScenario"><option value="easy1k">Easy 1K · 7:30/km</option><option value="steady5k">Steady 5K · 6:30/km</option><option value="interval3k">3K intervals · variable pace</option><option value="pause2k">2K pause/resume audit</option><option value="coached">Coached session · full plan</option></select></label>
           <label><span>Test speed</span><select id="simSpeed"><option value="20">20×</option><option value="40" selected>40×</option><option value="80">80×</option></select></label>
         </div>
-        <label class="sim-check"><input id="simAutoFinish" type="checkbox" checked><span>Auto-finish when target distance is reached</span></label>
+        <label class="sim-check"><input id="simAutoFinish" type="checkbox" checked><span>Auto-finish when simulation target is reached</span></label>
         <div class="sim-targets"><div><span>Target</span><strong id="simTarget">1.00 km</strong></div><div><span>Expected active time</span><strong id="simExpected">07:30</strong></div><div><span>Purpose</span><strong id="simPurpose">Splits + route + save</strong></div></div>
         <div id="simAudit" class="diagnostic-status"><strong>Ready for simulation.</strong><span>Select a scenario, then use Start Run below.</span></div>
       </section>
@@ -82,8 +82,11 @@
       <section id="coachCueCard" class="card coach-cue-card hidden">
         <div class="section-title compact"><div><p class="eyebrow">COACHED SESSION</p><h3 id="coachSessionLabel">Session</h3></div><span id="coachPhaseBadge" class="mode-badge">READY</span></div>
         <div class="cue-main"><strong id="coachCue">Warm up comfortably</strong><span id="coachNextCue">Next cue will appear here.</span></div>
+        <div class="coach-live-meta"><span id="coachPhaseMeta">Ready to begin</span><strong id="coachCountdown">--:--</strong></div>
         <div class="cue-progress"><i id="coachPhaseProgress"></i></div>
-        <div class="coach-cue-actions"><button id="cancelCoachedSession" type="button" class="secondary">Use free run instead</button></div>
+        <div class="coach-overall"><span>Session progress</span><span id="coachSessionProgressText">00:00 / 00:00</span></div>
+        <div class="cue-progress overall"><i id="coachOverallProgress"></i></div>
+        <div class="coach-cue-actions"><button id="testCoachedSession" type="button" class="coach-test-btn">Simulate full session (TEST)</button><button id="cancelCoachedSession" type="button" class="secondary">Use free run instead</button></div>
       </section>
 
       <section class="card tracker-card">
@@ -108,6 +111,7 @@
       <section id="summaryCard" class="card summary hidden">
         <div class="section-title compact"><h3 id="summaryTitle">Run saved</h3><button id="closeSummary" class="icon-btn">×</button></div><div id="summaryNotice" class="test-notice hidden"><strong>TEST DATA</strong><span>This simulated activity is excluded from all real-run statistics and trends.</span></div>
         <div class="summary-grid"><div><span>Distance</span><strong id="summaryDistance">0.00 km</strong></div><div><span>Active time</span><strong id="summaryTime">00:00</strong></div><div><span>Avg pace</span><strong id="summaryPace">--:-- /km</strong></div><div><span>Paused</span><strong id="summaryPaused">00:00</strong></div><div><span>Splits</span><strong id="summarySplits">0</strong></div><div><span>Mode</span><strong id="summaryMode">GPS</strong></div></div>
+        <div id="coachSimSummary" class="coach-sim-summary hidden" aria-live="polite"></div>
         <div id="postRunCoach" class="post-run-coach hidden">
           <div><p class="eyebrow">COACH DEBRIEF</p><h3>How did that feel?</h3><p class="muted small">Your answer helps shape the next recommendation.</p></div>
           <div class="post-run-grid"><label>RPE<select id="postRunRpe"><option value="">Select</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label>Overall<select id="postRunFeel"><option value="">Select</option><option value="easy">Easier than expected</option><option value="right">About right</option><option value="hard">Harder than expected</option></select></label></div>
