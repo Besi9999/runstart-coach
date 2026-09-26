@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart V8.3</title>
+  <title>RunStart V8.4 Personal Coach</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8.3 • split-safe deterministic Simulation Lab + adaptive coaching + advanced analytics</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8.4 • iPhone-first personal coaching + guided runs + proven V8.3 tracking engine</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -32,6 +32,22 @@
     </nav>
 
     <section id="coachTab" class="tab-panel active">
+      <section class="card personal-coach-card">
+        <div class="section-title compact"><div><p class="eyebrow">YOUR PERSONAL COACH</p><h2 class="coach-today-heading">Today</h2></div><span id="coachTodayStatus" class="mode-badge readiness building">CHECK-IN</span></div>
+        <h3 id="coachTodayTitle">Tell me how today feels</h3>
+        <p id="coachTodayText" class="coach-today-text">A short check-in helps RunStart choose between your planned session, an easier day, or recovery.</p>
+        <div class="checkin-grid" aria-label="Daily training check-in">
+          <div class="checkin-group"><span>Energy</span><div class="choice-row"><button type="button" class="choice" data-checkin="energy" data-value="low">Low</button><button type="button" class="choice" data-checkin="energy" data-value="okay">Okay</button><button type="button" class="choice" data-checkin="energy" data-value="good">Good</button></div></div>
+          <div class="checkin-group"><span>Legs</span><div class="choice-row"><button type="button" class="choice" data-checkin="legs" data-value="sore">Sore</button><button type="button" class="choice" data-checkin="legs" data-value="okay">Okay</button><button type="button" class="choice" data-checkin="legs" data-value="fresh">Fresh</button></div></div>
+          <div class="checkin-group"><span>Sleep</span><div class="choice-row"><button type="button" class="choice" data-checkin="sleep" data-value="poor">Poor</button><button type="button" class="choice" data-checkin="sleep" data-value="okay">Okay</button><button type="button" class="choice" data-checkin="sleep" data-value="good">Good</button></div></div>
+        </div>
+        <div id="coachTodayPlan" class="today-plan">
+          <span>Next step</span><strong>Complete the check-in</strong><small>Your planned workout will appear here.</small>
+        </div>
+        <div class="coach-action-row"><button id="startCoachedSession" type="button" class="primary coach-start" disabled>Start coached session</button><button id="advanceWeek" type="button" class="secondary hidden">Advance week</button></div>
+        <p class="muted small coach-scope">RunStart adapts training using your own completed sessions, RPE, real-run history and daily check-in. It does not diagnose injuries or medical conditions.</p>
+      </section>
+
       <section class="hero card"><div><p class="muted">Current goal</p><h2 id="goal"></h2><p id="coachText"></p></div><div class="score"><span id="score">0</span><small>% done</small></div></section>
 
       <section class="card intelligence-card">
@@ -63,6 +79,13 @@
         <div id="simAudit" class="diagnostic-status"><strong>Ready for simulation.</strong><span>Select a scenario, then use Start Run below.</span></div>
       </section>
 
+      <section id="coachCueCard" class="card coach-cue-card hidden">
+        <div class="section-title compact"><div><p class="eyebrow">COACHED SESSION</p><h3 id="coachSessionLabel">Session</h3></div><span id="coachPhaseBadge" class="mode-badge">READY</span></div>
+        <div class="cue-main"><strong id="coachCue">Warm up comfortably</strong><span id="coachNextCue">Next cue will appear here.</span></div>
+        <div class="cue-progress"><i id="coachPhaseProgress"></i></div>
+        <div class="coach-cue-actions"><button id="cancelCoachedSession" type="button" class="secondary">Use free run instead</button></div>
+      </section>
+
       <section class="card tracker-card">
         <div class="tracker-head"><div><p class="eyebrow">LIVE RUN</p><h2 id="trackerStatus">Ready</h2></div><div class="gps-pill" id="gpsStatus">GPS idle</div></div>
         <div class="metrics-grid">
@@ -85,6 +108,12 @@
       <section id="summaryCard" class="card summary hidden">
         <div class="section-title compact"><h3 id="summaryTitle">Run saved</h3><button id="closeSummary" class="icon-btn">×</button></div><div id="summaryNotice" class="test-notice hidden"><strong>TEST DATA</strong><span>This simulated activity is excluded from all real-run statistics and trends.</span></div>
         <div class="summary-grid"><div><span>Distance</span><strong id="summaryDistance">0.00 km</strong></div><div><span>Active time</span><strong id="summaryTime">00:00</strong></div><div><span>Avg pace</span><strong id="summaryPace">--:-- /km</strong></div><div><span>Paused</span><strong id="summaryPaused">00:00</strong></div><div><span>Splits</span><strong id="summarySplits">0</strong></div><div><span>Mode</span><strong id="summaryMode">GPS</strong></div></div>
+        <div id="postRunCoach" class="post-run-coach hidden">
+          <div><p class="eyebrow">COACH DEBRIEF</p><h3>How did that feel?</h3><p class="muted small">Your answer helps shape the next recommendation.</p></div>
+          <div class="post-run-grid"><label>RPE<select id="postRunRpe"><option value="">Select</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><label>Overall<select id="postRunFeel"><option value="">Select</option><option value="easy">Easier than expected</option><option value="right">About right</option><option value="hard">Harder than expected</option></select></label></div>
+          <button id="savePostRunCoach" type="button" class="primary full">Save coach debrief</button>
+          <div id="postRunCoachSaved" class="muted small" aria-live="polite"></div>
+        </div>
       </section>
 
       <section id="detailCard" class="card hidden">
@@ -151,9 +180,22 @@
         <p class="muted small">RunStart never sends TEST/simulation data automatically. Manual upload keeps you in control and avoids paid API requirements.</p>
       </section>
     </section>
-    <section class="card install-card"><h3>iPhone app</h3><p>V8.3 keeps RunStart independent and free: split-safe deterministic TEST simulation, advanced local analytics, route intelligence, and Strava-compatible GPX export for REAL activities.</p></section>
+    <section class="card install-card"><h3>iPhone app</h3><p>V8.4 turns the proven V8.3 tracking engine into an iPhone-first personal coach: daily readiness check-in, a recommended session, guided run cues, post-run RPE debrief, adaptive weekly progression, analytics, route intelligence, and free GPX export.</p></section>
     <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
   </main>
+
+  <nav class="bottom-nav" aria-label="RunStart mobile navigation">
+    <button type="button" class="bottom-tab active" data-tab="coach"><span>⌂</span><small>Coach</small></button>
+    <button type="button" class="bottom-tab bottom-run" data-tab="run"><span>▶</span><small>Run</small></button>
+    <button type="button" class="bottom-tab" data-tab="history"><span>≡</span><small>History</small></button>
+    <button type="button" class="bottom-tab" data-tab="stats"><span>↗</span><small>Progress</small></button>
+    <button type="button" id="openMore" class="bottom-tab"><span>•••</span><small>More</small></button>
+  </nav>
+  <div id="moreSheet" class="more-sheet hidden" role="dialog" aria-modal="true" aria-label="More RunStart sections">
+    <button type="button" class="more-backdrop" aria-label="Close menu"></button>
+    <div class="more-panel"><div class="more-handle"></div><h3>More</h3><button type="button" data-more-target="routes">Routes & heatmap</button><button type="button" data-more-target="share">Share & GPX</button><button type="button" id="closeMore" class="secondary">Close</button></div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="./app.js"></script>
 </body>
