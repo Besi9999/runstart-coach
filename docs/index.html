@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart V8</title>
+  <title>RunStart V8.1</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8 • adaptive coaching + advanced analytics + route intelligence</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V8.1 • Simulation Lab + adaptive coaching + advanced analytics</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -49,6 +49,18 @@
         <div class="section-title compact"><div><p class="eyebrow">TRACKING MODE</p><h3>Choose how to test or run</h3></div><span id="modeBadge" class="mode-badge">REAL GPS</span></div>
         <div class="mode-switch"><button id="realMode" class="mode-btn active">Real GPS</button><button id="simMode" class="mode-btn">Simulation</button></div>
         <p id="modeHelp" class="muted small">Uses iPhone GPS. Keep RunStart open for the most reliable tracking.</p>
+      </section>
+
+      <section id="simulationLab" class="card sim-lab hidden">
+        <div class="section-title compact"><div><p class="eyebrow">SIMULATION LAB</p><h3>Full-pipeline TEST run</h3></div><span class="mode-badge sim">TEST ONLY</span></div>
+        <p class="muted small">Runs a deterministic synthetic route through the same tracking, splits, pause/resume, History, map and analytics pipeline. Every result stays TEST and is excluded from REAL statistics.</p>
+        <div class="sim-lab-grid">
+          <label><span>Scenario</span><select id="simScenario"><option value="easy1k">Easy 1K · 7:30/km</option><option value="steady5k">Steady 5K · 6:30/km</option><option value="interval3k">3K intervals · variable pace</option><option value="pause2k">2K pause/resume audit</option></select></label>
+          <label><span>Test speed</span><select id="simSpeed"><option value="20">20×</option><option value="40" selected>40×</option><option value="80">80×</option></select></label>
+        </div>
+        <label class="sim-check"><input id="simAutoFinish" type="checkbox" checked><span>Auto-finish when target distance is reached</span></label>
+        <div class="sim-targets"><div><span>Target</span><strong id="simTarget">1.00 km</strong></div><div><span>Expected active time</span><strong id="simExpected">07:30</strong></div><div><span>Purpose</span><strong id="simPurpose">Splits + route + save</strong></div></div>
+        <div id="simAudit" class="diagnostic-status"><strong>Ready for simulation.</strong><span>Select a scenario, then use Start Run below.</span></div>
       </section>
 
       <section class="card tracker-card">
