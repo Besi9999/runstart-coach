@@ -13,12 +13,12 @@
   <link rel="preconnect" href="https://tile.openstreetmap.org" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="./style.css" />
-  <title>RunStart Coach V4.2</title>
+  <title>RunStart Coach V5</title>
 </head>
 <body>
   <main class="app">
     <header>
-      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V4.2 • data management + TEST-safe stats</p></div>
+      <div><p class="eyebrow">BEGINNER RUNNING COACH</p><h1>RunStart</h1><p class="version">V5 • secure Strava sync</p></div>
       <div class="badge">Week <span id="week">1</span></div>
     </header>
 
@@ -26,7 +26,7 @@
       <button class="tab active" data-tab="coach">Coach</button>
       <button class="tab" data-tab="run">Run</button>
       <button class="tab" data-tab="history">History</button>
-      <button class="tab" data-tab="stats">Stats</button>
+      <button class="tab" data-tab="stats">Stats</button><button class="tab" data-tab="strava">Strava</button>
     </nav>
 
     <section id="coachTab" class="tab-panel active">
@@ -71,7 +71,7 @@
         <div class="summary-grid"><div><span>Distance</span><strong id="detailDistance"></strong></div><div><span>Active time</span><strong id="detailTime"></strong></div><div><span>Avg pace</span><strong id="detailPace"></strong></div><div><span>Paused</span><strong id="detailPaused"></strong></div><div><span>GPS avg</span><strong id="detailAccuracy"></strong></div><div><span>Mode</span><strong id="detailMode"></strong></div></div>
         <h4>Splits</h4><div id="detailSplits" class="split-list"></div>
         <h4>Route map</h4><div id="detailMap" class="map detail-map"></div>
-        <div class="button-row three"><button id="exportGpx" class="secondary">Export GPX</button><button id="toggleTest" class="secondary">Mark as TEST</button><button id="deleteRun" class="danger">Delete run</button></div>
+        <div class="button-row four"><button id="exportGpx" class="secondary">Export GPX</button><button id="uploadStrava" class="strava-btn">Send to Strava</button><button id="toggleTest" class="secondary">Mark as TEST</button><button id="deleteRun" class="danger">Delete run</button></div><p id="stravaRunStatus" class="muted small"></p>
       </section>
 
       <section class="card"><div class="section-title compact"><h3>Running history</h3><span id="historyTotal" class="muted">0 real · 0 test</span></div><div id="historyList" class="history-list"></div></section>
@@ -85,7 +85,30 @@
       <section class="card"><div class="section-title compact"><h3>Weekly consistency</h3><span class="muted">last 6 weeks</span></div><div id="weeklyChart" class="weekly-chart"></div></section>
     </section>
 
-    <section class="card install-card"><h3>iPhone app</h3><p>V4.2 adds data management before Strava: old GPS test records can be marked TEST, selected activities can be deleted, and running history/statistics can be reset without touching Coach settings.</p></section>
+
+    <section id="stravaTab" class="tab-panel">
+      <section class="card">
+        <div class="section-title compact"><div><p class="eyebrow">SECURE STRAVA SYNC</p><h3>Connection</h3></div><span id="stravaStatusBadge" class="strava-status">Not configured</span></div>
+        <p class="muted small">RunStart V5 keeps your Strava client secret and refresh token in a Cloudflare Worker/KV backend. GitHub Pages never receives those secrets.</p>
+        <label class="field-label" for="stravaBackendUrl">Cloudflare Worker URL</label>
+        <input id="stravaBackendUrl" class="full-input" inputmode="url" placeholder="https://runstart-strava.your-account.workers.dev" />
+        <div class="button-row"><button id="saveStravaBackend" class="secondary">Save backend URL</button><button id="refreshStravaStatus" class="secondary">Check connection</button></div>
+        <div id="stravaAthlete" class="strava-athlete hidden"></div>
+        <div class="button-row"><button id="connectStrava" class="strava-btn">Connect with Strava</button><button id="disconnectStrava" class="danger" disabled>Disconnect</button></div>
+        <p id="stravaMessage" class="muted small"></p>
+      </section>
+      <section class="card">
+        <div class="section-title compact"><h3>Upload real runs</h3><span class="muted">manual sync</span></div>
+        <p class="muted small">Only REAL GPS activities can be uploaded. TEST/simulation activities are blocked. Manual upload avoids accidental duplicates while V5 is being validated.</p>
+        <div id="stravaRunList" class="strava-run-list"></div>
+      </section>
+      <section class="card">
+        <h3>Privacy & security</h3>
+        <p class="muted small">Your RunStart history remains local on this device. When you choose Send to Strava, only that selected REAL activity is sent through your Worker to Strava. The Worker stores OAuth tokens server-side in KV and refreshes short-lived access tokens when needed.</p>
+      </section>
+    </section>
+
+    <section class="card install-card"><h3>iPhone app</h3><p>V5 adds secure, manual Strava sync through a Cloudflare Worker backend. TEST activities stay local and can never be sent to Strava.</p></section>
     <footer>Run easy. Build gradually. Stop if you feel chest pain, faintness, or unusual shortness of breath.</footer>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

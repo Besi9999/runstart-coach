@@ -1,5 +1,5 @@
-const KEY='runstart-coach-state-v4-2';
-const LEGACY_KEYS=['runstart-coach-state-v4-1','runstart-coach-state-v4','runstart-coach-state-v3','runstart-coach-state-v2','runstart-coach-state-v1'];
+const KEY='runstart-coach-state-v5';
+const LEGACY_KEYS=['runstart-coach-state-v4-2','runstart-coach-state-v4-1','runstart-coach-state-v4','runstart-coach-state-v3','runstart-coach-state-v2','runstart-coach-state-v1'];
 const defaultState={
   week:1,
   profile:{heightCm:168,weightKg:80,goal:'Build consistency and complete an easy 5K'},
@@ -12,7 +12,7 @@ const defaultState={
 };
 const $=s=>document.querySelector(s);
 function clone(x){return JSON.parse(JSON.stringify(x));}
-function normalizeRun(r){const mode=r.mode||'real';return {...r,mode,isTest:r.isTest===true||mode==='simulation',pausedMs:Number(r.pausedMs)||0,splits:Array.isArray(r.splits)?r.splits:[],points:Array.isArray(r.points)?r.points:[]};}
+function normalizeRun(r){const mode=r.mode||'real';return {...r,mode,isTest:r.isTest===true||mode==='simulation',pausedMs:Number(r.pausedMs)||0,splits:Array.isArray(r.splits)?r.splits:[],points:Array.isArray(r.points)?r.points:[],strava:r.strava||null};}
 function isTestRun(r){return !!(r&&(r.isTest===true||r.mode==='simulation'));}
 function realRuns(){return state.runs.filter(r=>!isTestRun(r));}
 function testRuns(){return state.runs.filter(isTestRun);}
@@ -111,7 +111,7 @@ function renderHistory(){
   renderManageActivities();
 }
 function openRunDetail(id){
-  const r=state.runs.find(x=>x.id===id);if(!r)return;const d=new Date(r.date);$('#detailTitle').textContent=`${d.toLocaleDateString()} · ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;$('#detailDistance').textContent=`${(r.distanceM/1000).toFixed(2)} km`;$('#detailTime').textContent=fmtTime(r.durationMs);$('#detailPace').textContent=`${r.pace} /km`;$('#detailPaused').textContent=fmtTime(r.pausedMs||0);$('#detailAccuracy').textContent=r.avgAccuracy?`±${r.avgAccuracy} m`:'—';$('#detailMode').textContent=modeLabel(r);$('#deleteRun').dataset.id=r.id;$('#exportGpx').dataset.id=r.id;$('#toggleTest').dataset.id=r.id;$('#toggleTest').textContent=r.mode==='simulation'?'Simulation TEST':(isTestRun(r)?'Mark as REAL':'Mark as TEST');$('#toggleTest').disabled=r.mode==='simulation';
+  const r=state.runs.find(x=>x.id===id);if(!r)return;const d=new Date(r.date);$('#detailTitle').textContent=`${d.toLocaleDateString()} · ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;$('#detailDistance').textContent=`${(r.distanceM/1000).toFixed(2)} km`;$('#detailTime').textContent=fmtTime(r.durationMs);$('#detailPace').textContent=`${r.pace} /km`;$('#detailPaused').textContent=fmtTime(r.pausedMs||0);$('#detailAccuracy').textContent=r.avgAccuracy?`±${r.avgAccuracy} m`:'—';$('#detailMode').textContent=modeLabel(r);$('#deleteRun').dataset.id=r.id;$('#exportGpx').dataset.id=r.id;$('#uploadStrava').dataset.id=r.id;$('#toggleTest').dataset.id=r.id;$('#toggleTest').textContent=r.mode==='simulation'?'Simulation TEST':(isTestRun(r)?'Mark as REAL':'Mark as TEST');$('#toggleTest').disabled=r.mode==='simulation';updateRunStravaButton(r);
   const root=$('#detailSplits');root.innerHTML='';if(r.splits?.length){r.splits.forEach(s=>{const row=document.createElement('div');row.className='split-row';row.innerHTML=`<span>Km ${s.km}</span><strong>${fmtTime(s.splitMs)}</strong><span>${fmtPace(1000,s.splitMs,1)} /km</span>`;root.appendChild(row);});}else root.innerHTML='<p class="muted small">No full-kilometer splits recorded.</p>';
   $('#detailCard').classList.remove('hidden');setTimeout(()=>showDetailMap(r.points||[]),50);window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -120,7 +120,7 @@ function renderManageActivities(){
   if(!state.runs.length){root.innerHTML='<p class="muted small">No running activities stored.</p>';return;}
   state.runs.forEach(r=>{const d=new Date(r.date),row=document.createElement('label');row.className='manage-row';row.innerHTML=`<input class="manage-check" data-id="${r.id}" type="checkbox"><div><strong>${d.toLocaleDateString()} · ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</strong><span>${(r.distanceM/1000).toFixed(2)} km · ${fmtTime(r.durationMs)} · ${r.pace} /km</span></div><span class="manage-badge ${isTestRun(r)?'test':'real'}">${isTestRun(r)?'TEST':'REAL'}</span>`;root.appendChild(row);});
 }
-function refreshDataViews(){save();renderHistory();renderStats();}
+function refreshDataViews(){save();renderHistory();renderStats();renderStravaRunList();}
 $('#toggleTest').onclick=()=>{const id=Number($('#toggleTest').dataset.id),r=state.runs.find(x=>x.id===id);if(!r)return;if(r.mode==='simulation'){alert('Simulation activities are always TEST and cannot be marked REAL.');return;}r.isTest=!isTestRun(r);refreshDataViews();openRunDetail(id);};
 $('#markSelectedTest').onclick=()=>{const ids=selectedRunIds();if(!ids.length){alert('Select one or more activities first.');return;}state.runs.forEach(r=>{if(ids.includes(r.id))r.isTest=true;});refreshDataViews();};
 $('#markSelectedReal').onclick=()=>{const ids=selectedRunIds();if(!ids.length){alert('Select one or more activities first.');return;}let blocked=0;state.runs.forEach(r=>{if(ids.includes(r.id)){if(r.mode==='simulation')blocked++;else r.isTest=false;}});refreshDataViews();if(blocked)alert(`${blocked} simulation activit${blocked===1?'y was':'ies were'} kept as TEST.`);};
@@ -130,8 +130,65 @@ $('#closeDetail').onclick=()=>$('#detailCard').classList.add('hidden');
 $('#deleteRun').onclick=()=>{const id=Number($('#deleteRun').dataset.id);if(!confirm('Delete this activity from RunStart? This cannot be undone.'))return;state.runs=state.runs.filter(r=>r.id!==id);$('#detailCard').classList.add('hidden');refreshDataViews();};
 $('#deleteTests').onclick=()=>{const n=testRuns().length;if(!n){alert('No test activities to delete.');return;}if(!confirm(`Delete all ${n} TEST simulation activit${n===1?'y':'ies'}? Real GPS runs will be kept.`))return;state.runs=state.runs.filter(r=>!isTestRun(r));$('#summaryCard').classList.add('hidden');$('#detailCard').classList.add('hidden');refreshDataViews();};
 function download(name,text,type='text/plain'){const blob=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200);}
-function runToGpx(r){const pts=(r.points||[]).map(p=>`<trkpt lat="${p.lat}" lon="${p.lon}"><time>${new Date(p.t||r.date).toISOString()}</time></trkpt>`).join('');const label=isTestRun(r)?'TEST Simulation':'Run';return`<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="RunStart V4.2" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>RunStart ${label} ${new Date(r.date).toISOString()}</name></metadata><trk><name>RunStart ${label}</name><trkseg>${pts}</trkseg></trk></gpx>`;}
+function runToGpx(r){const pts=(r.points||[]).map(p=>`<trkpt lat="${p.lat}" lon="${p.lon}"><time>${new Date(p.t||r.date).toISOString()}</time></trkpt>`).join('');const label=isTestRun(r)?'TEST Simulation':'Run';return`<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="RunStart V5" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>RunStart ${label} ${new Date(r.date).toISOString()}</name></metadata><trk><name>RunStart ${label}</name><trkseg>${pts}</trkseg></trk></gpx>`;}
 $('#exportGpx').onclick=()=>{const r=state.runs.find(x=>x.id===Number($('#exportGpx').dataset.id));if(!r)return;download(`runstart-${new Date(r.date).toISOString().slice(0,16).replace(/[:T]/g,'-')}.gpx`,runToGpx(r),'application/gpx+xml');};
+
+
+
+// -------------------------
+// V5 secure Strava sync
+// -------------------------
+const STRAVA_CONFIG_KEY='runstart-strava-config-v1';
+let stravaConfig=loadStravaConfig();
+let stravaConnected=false;
+let stravaAthlete=null;
+function randomToken(){const a=new Uint8Array(32);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function loadStravaConfig(){try{const raw=localStorage.getItem(STRAVA_CONFIG_KEY),v=raw?JSON.parse(raw):{};return{backendUrl:v.backendUrl||'',deviceToken:v.deviceToken||randomToken()};}catch{return{backendUrl:'',deviceToken:randomToken()};}}
+function saveStravaConfig(){localStorage.setItem(STRAVA_CONFIG_KEY,JSON.stringify(stravaConfig));}
+function cleanBackendUrl(v){return String(v||'').trim().replace(/\/+$/,'');}
+function validBackendUrl(v){try{const u=new URL(v);return u.protocol==='https:'||u.hostname==='localhost'||u.hostname==='127.0.0.1';}catch{return false;}}
+function setStravaMessage(msg,isError=false){const el=$('#stravaMessage');if(!el)return;el.textContent=msg||'';el.style.color=isError?'#fecaca':'';}
+function setStravaBadge(text,kind=''){const el=$('#stravaStatusBadge');if(!el)return;el.textContent=text;el.className='strava-status'+(kind?` ${kind}`:'');}
+async function stravaApi(path,{method='GET',body=null}={}){
+  if(!stravaConfig.backendUrl)throw new Error('Set the Cloudflare Worker URL first.');
+  const headers={'Authorization':`Bearer ${stravaConfig.deviceToken}`};
+  if(body!==null)headers['Content-Type']='application/json';
+  const res=await fetch(stravaConfig.backendUrl+path,{method,headers,body:body===null?undefined:JSON.stringify(body)});
+  const text=await res.text();let data={};try{data=text?JSON.parse(text):{};}catch{data={message:text||`HTTP ${res.status}`};}
+  if(!res.ok)throw new Error(data.error||data.message||`Request failed (${res.status})`);
+  return data;
+}
+function athleteName(a){if(!a)return'';return [a.firstname,a.lastname].filter(Boolean).join(' ')||a.username||`Athlete ${a.id||''}`;}
+function renderStravaConnection(){
+  const input=$('#stravaBackendUrl');if(input&&document.activeElement!==input)input.value=stravaConfig.backendUrl||'';
+  const athlete=$('#stravaAthlete'),connect=$('#connectStrava'),disconnect=$('#disconnectStrava');
+  if(!stravaConfig.backendUrl){setStravaBadge('Not configured');athlete?.classList.add('hidden');if(connect)connect.disabled=true;if(disconnect)disconnect.disabled=true;return;}
+  if(stravaConnected&&stravaAthlete){setStravaBadge('Connected','connected');if(athlete){athlete.innerHTML=`<strong>${athleteName(stravaAthlete)}</strong><span>Strava athlete ID ${stravaAthlete.id||'—'}</span>`;athlete.classList.remove('hidden');}if(connect)connect.disabled=true;if(disconnect)disconnect.disabled=false;}
+  else{setStravaBadge('Not connected');athlete?.classList.add('hidden');if(connect)connect.disabled=false;if(disconnect)disconnect.disabled=true;}
+}
+async function refreshStravaStatus(showMessage=true){
+  renderStravaConnection();if(!stravaConfig.backendUrl)return false;
+  try{const d=await stravaApi('/api/status');stravaConnected=!!d.connected;stravaAthlete=d.athlete||null;renderStravaConnection();if(showMessage)setStravaMessage(stravaConnected?'Strava connection is ready.':'Not connected to Strava yet.');renderStravaRunList();return stravaConnected;}catch(e){stravaConnected=false;stravaAthlete=null;setStravaBadge('Backend error','error');if(showMessage)setStravaMessage(e.message,true);renderStravaRunList();return false;}
+}
+$('#saveStravaBackend').onclick=async()=>{const v=cleanBackendUrl($('#stravaBackendUrl').value);if(!validBackendUrl(v)){setStravaMessage('Enter a valid HTTPS Worker URL.',true);return;}stravaConfig.backendUrl=v;saveStravaConfig();setStravaMessage('Backend URL saved. Checking connection...');await refreshStravaStatus(true);};
+$('#refreshStravaStatus').onclick=()=>refreshStravaStatus(true);
+$('#connectStrava').onclick=async()=>{try{setStravaMessage('Preparing secure Strava authorization...');const returnUrl=location.origin+location.pathname;const d=await stravaApi('/api/auth/start',{method:'POST',body:{return_url:returnUrl}});if(!d.authorize_url)throw new Error('Backend did not return an authorization URL.');location.href=d.authorize_url;}catch(e){setStravaMessage(e.message,true);}};
+$('#disconnectStrava').onclick=async()=>{if(!confirm('Disconnect RunStart from Strava? This revokes the stored Strava tokens on the backend.'))return;try{await stravaApi('/api/disconnect',{method:'POST',body:{}});stravaConnected=false;stravaAthlete=null;setStravaMessage('Disconnected from Strava.');renderStravaConnection();renderStravaRunList();}catch(e){setStravaMessage(e.message,true);}};
+function stravaRunState(r){if(r.strava?.activityId)return`Synced · Strava activity ${r.strava.activityId}`;if(r.strava?.uploadId)return`Upload ${r.strava.uploadId} submitted`;return'';}
+function updateRunStravaButton(r){const b=$('#uploadStrava'),m=$('#stravaRunStatus');if(!b||!r)return;b.disabled=isTestRun(r)||!!r.strava?.activityId;b.textContent=r.strava?.activityId?'Sent to Strava':'Send to Strava';if(m)m.textContent=isTestRun(r)?'TEST activities cannot be uploaded to Strava.':stravaRunState(r);}
+function renderStravaRunList(){const root=$('#stravaRunList');if(!root)return;root.innerHTML='';const runs=realRuns().slice(0,12);if(!runs.length){root.innerHTML='<p class="muted small">No REAL GPS runs are available to upload yet.</p>';return;}runs.forEach(r=>{const d=new Date(r.date),row=document.createElement('div');row.className='strava-run-row';const synced=!!r.strava?.activityId;row.innerHTML=`<div><strong>${d.toLocaleDateString()} · ${(r.distanceM/1000).toFixed(2)} km</strong><span>${fmtTime(r.durationMs)} · ${r.pace} /km</span>${r.strava?`<span class="strava-sync ${synced?'strava-synced':''}">${stravaRunState(r)}</span>`:''}</div><button class="${synced?'secondary':'strava-btn'}" data-strava-run="${r.id}" ${synced?'disabled':''}>${synced?'Synced':'Upload'}</button>`;root.appendChild(row);});root.querySelectorAll('[data-strava-run]').forEach(b=>b.onclick=()=>uploadRunToStrava(Number(b.dataset.stravaRun),b));}
+async function pollUpload(uploadId){for(let i=0;i<8;i++){await new Promise(r=>setTimeout(r,i?2200:1200));const d=await stravaApi(`/api/upload-status?id=${encodeURIComponent(uploadId)}`);if(d.activity_id)return d;if(d.error)throw new Error(d.error);}return null;}
+async function uploadRunToStrava(id,button=null){
+  const r=state.runs.find(x=>x.id===id);if(!r)return;if(isTestRun(r)){alert('TEST activities cannot be uploaded to Strava.');return;}if(r.strava?.activityId){alert('This run is already linked to a Strava activity.');return;}if(!r.points||r.points.length<2){alert('This run has no usable GPS route to upload.');return;}const connected=await refreshStravaStatus(false);if(!connected){switchTab('strava');setStravaMessage('Connect Strava before uploading a run.',true);return;}
+  const oldText=button?.textContent;if(button){button.disabled=true;button.textContent='Uploading...';}const detailBtn=$('#uploadStrava');if(detailBtn&&Number(detailBtn.dataset.id)===id){detailBtn.disabled=true;detailBtn.textContent='Uploading...';}
+  try{const payload={run:{id:r.id,name:`RunStart ${(r.distanceM/1000).toFixed(2)} km`,external_id:`runstart-${r.id}.gpx`,gpx:runToGpx(r)}};const d=await stravaApi('/api/upload',{method:'POST',body:payload});r.strava={uploadId:d.id||d.upload_id||null,activityId:d.activity_id||null,uploadedAt:new Date().toISOString()};save();if(r.strava.uploadId&&!r.strava.activityId){const done=await pollUpload(r.strava.uploadId);if(done?.activity_id)r.strava.activityId=done.activity_id;if(done?.error)throw new Error(done.error);save();}renderHistory();renderStravaRunList();updateRunStravaButton(r);setStravaMessage(r.strava.activityId?`Run uploaded to Strava activity ${r.strava.activityId}.`:'Upload submitted to Strava. Processing may still be in progress.');}
+  catch(e){setStravaMessage(e.message,true);alert(`Strava upload failed: ${e.message}`);if(button){button.disabled=false;button.textContent=oldText||'Upload';}if(detailBtn&&Number(detailBtn.dataset.id)===id){detailBtn.disabled=false;detailBtn.textContent='Send to Strava';}}
+}
+$('#uploadStrava').onclick=()=>uploadRunToStrava(Number($('#uploadStrava').dataset.id),$('#uploadStrava'));
+function initStrava(){
+  saveStravaConfig();renderStravaConnection();renderStravaRunList();
+  const q=new URLSearchParams(location.search);const result=q.get('strava');if(result){history.replaceState({},'',location.pathname+location.hash);switchTab('strava');if(result==='connected'){setStravaMessage('Authorization completed. Verifying Strava connection...');refreshStravaStatus(true);}else setStravaMessage(q.get('message')||'Strava authorization was not completed.',true);}else if(stravaConfig.backendUrl)refreshStravaStatus(false);
+}
 
 function runsSince(days){const cut=Date.now()-days*86400000;return realRuns().filter(r=>new Date(r.date).getTime()>=cut);}
 function aggregate(runs){const distanceM=runs.reduce((a,r)=>a+(r.distanceM||0),0),durationMs=runs.reduce((a,r)=>a+(r.durationMs||0),0);return{count:runs.length,distanceM,durationMs,pace:fmtPace(distanceM,durationMs,20),longest:runs.reduce((m,r)=>Math.max(m,r.distanceM||0),0)};}
@@ -141,10 +198,10 @@ function renderStats(){
   const recent=clean.slice(0,8).reverse().map(r=>({...r,pm:paceMinutes(r.distanceM,r.durationMs)})).filter(r=>r.pm&&r.pm<60);const chart=$('#paceTrend');chart.innerHTML='';if(!recent.length){chart.innerHTML='<p class="muted small">No meaningful pace data yet.</p>';}else{const vals=recent.map(r=>r.pm),min=Math.min(...vals),max=Math.max(...vals),range=Math.max(.5,max-min);recent.forEach(r=>{const h=35+(max-r.pm)/range*110,wrap=document.createElement('div');wrap.className='pace-bar-wrap';wrap.innerHTML=`<b>${r.pace}</b><div class="pace-bar ${r.mode==='simulation'?'sim':''}" style="height:${h}px"></div><small>${new Date(r.date).toLocaleDateString([], {month:'short',day:'numeric'})}</small>`;chart.appendChild(wrap);});}
   const weeks=[];for(let i=5;i>=0;i--){const end=Date.now()-i*7*86400000,start=end-7*86400000,rs=clean.filter(r=>{const t=new Date(r.date).getTime();return t>=start&&t<end;}),a=aggregate(rs);weeks.push({label:`-${i}w`,km:a.distanceM/1000});}const maxKm=Math.max(.1,...weeks.map(w=>w.km));$('#weeklyChart').innerHTML=weeks.map(w=>`<div class="week-col"><b>${w.km.toFixed(1)}</b><div class="week-bar" style="height:${Math.max(4,w.km/maxKm*115)}px"></div><small>${w.label}</small></div>`).join('');
 }
-function switchTab(name){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));$(`#${name}Tab`).classList.add('active');if(name==='run'){setTimeout(()=>ensureLiveMap(),50);}if(name==='stats')renderStats();window.scrollTo({top:0,behavior:'smooth'});}
+function switchTab(name){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));$(`#${name}Tab`).classList.add('active');if(name==='run'){setTimeout(()=>ensureLiveMap(),50);}if(name==='stats')renderStats();if(name==='strava'){renderStravaRunList();refreshStravaStatus(false);}window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 $('#startRun').onclick=startRun;$('#pauseRun').onclick=pauseRun;$('#finishRun').onclick=finishRun;
 $('#exportData').onclick=()=>download(`runstart-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(state,null,2),'application/json');
 window.addEventListener('beforeunload',()=>{if(tracker.active)stopSource();});
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));
-renderCoach();renderHistory();renderStats();updateMetrics();renderLiveSplits();setMode('real');
+renderCoach();renderHistory();renderStats();renderStravaRunList();updateMetrics();renderLiveSplits();setMode('real');initStrava();
